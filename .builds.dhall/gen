@@ -1,0 +1,5 @@
+#!/bin/sh
+
+for FILE in .builds.dhall/*.dhall; do
+	echo "./$FILE" | dhall-to-yaml > .builds/$(basename "$FILE" .dhall).yml
+done

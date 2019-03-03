@@ -1,0 +1,13 @@
+image: debian/stable
+sources:
+- https://git.sr.ht/~singpolyma/dhall-ruby
+tasks:
+- build: |
+    cd dhall-ruby
+    rubocop
+    bundle install --path="../.gems"
+    bundle exec ruby -Ilib test/test_binary.rb
+packages:
+- ruby
+- bundler
+- rubocop

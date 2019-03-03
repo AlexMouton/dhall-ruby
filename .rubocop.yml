@@ -1,0 +1,47 @@
+AllCops:
+  TargetRubyVersion: 2.3.3
+
+Metrics/LineLength:
+  Max: 80
+
+Layout/Tab:
+  Enabled: false
+
+Layout/IndentationWidth:
+  Width: 1 # one tab
+
+Layout/EndAlignment:
+  EnforcedStyleAlignWith: variable
+
+Layout/CaseIndentation:
+  EnforcedStyle: end
+
+Layout/SpaceAroundEqualsInParameterDefault:
+  EnforcedStyle: no_space
+
+Layout/IndentArray:
+  EnforcedStyle: consistent
+
+Layout/FirstParameterIndentation:
+  EnforcedStyle: consistent
+
+Style/BlockDelimiters:
+  EnforcedStyle: braces_for_chaining
+
+Style/Documentation:
+  Enabled: false
+
+Style/FormatString:
+  EnforcedStyle: percent
+
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+
+Style/SymbolArray:
+  EnforcedStyle: brackets
+
+Naming/UncommunicativeBlockParamName:
+  Enabled: false
+
+Naming/UncommunicativeMethodParamName:
+  Enabled: false

@@ -136,7 +136,7 @@ module Dhall
 		def initialize(arg)
 			@arg = arg
 		end
-		DEPRETATION_WIKI = "https://github.com/dhall-lang/dhall-lang/wiki/" \
+		DEPRECATION_WIKI = "https://github.com/dhall-lang/dhall-lang/wiki/" \
 		                   "Migration:-Deprecation-of-constructors-keyword"
 		deprecate :initialize, DEPRECATION_WIKI, 2019, 4
 	end

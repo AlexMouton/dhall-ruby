@@ -1,4 +1,5 @@
 # frozen_string_literal: true
 
 require "dhall/ast"
-require "dhall/cbor"
+require "dhall/binary"
+require "dhall/normalize"

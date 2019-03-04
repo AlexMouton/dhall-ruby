@@ -3,4 +3,4 @@
 source "https://rubygems.org"
 
 gem "cbor"
-gem "rubocop"
+gem "value_semantics"

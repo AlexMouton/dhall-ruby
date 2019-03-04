@@ -28,6 +28,9 @@ Layout/FirstParameterIndentation:
 Style/BlockDelimiters:
   EnforcedStyle: braces_for_chaining
 
+Style/MultilineBlockChain:
+  Enabled: false
+
 Style/Documentation:
   Enabled: false
 
@@ -44,4 +47,7 @@ Naming/UncommunicativeBlockParamName:
   Enabled: false
 
 Naming/UncommunicativeMethodParamName:
+  Enabled: false
+
+List/ParenthesesAsGroupedExpression:
   Enabled: false

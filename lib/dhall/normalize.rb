@@ -1,13 +1,37 @@
 # frozen_string_literal: true
 
+require "dhall/builtins"
+
 module Dhall
 	class Expression
 		def normalize
 			map_subexpressions(&:normalize)
 		end
+
+		def fusion(*); end
 	end
 
 	class Application
+		def normalize
+			return fuse.normalize if fuse
+			normalized = super
+			return normalized.fuse if normalized.fuse
+
+			if normalized.function.is_a?(Builtin)
+				return normalized.function.call(*normalized.arguments)
+			end
+
+			normalized
+		end
+
+		def fuse
+			if function.is_a?(Application)
+				@fused ||= function.function.fusion(*function.arguments, *arguments)
+				return @fused if @fused
+			end
+
+			@fused ||= function.fusion(*arguments)
+		end
 	end
 
 	class Function

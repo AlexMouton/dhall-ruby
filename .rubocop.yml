@@ -51,3 +51,6 @@ Naming/UncommunicativeMethodParamName:
 
 List/ParenthesesAsGroupedExpression:
   Enabled: false
+
+Lint/UnusedMethodArgument:
+  AllowUnusedKeywordArguments: true

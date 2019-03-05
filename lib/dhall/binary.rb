@@ -2,6 +2,9 @@
 
 require "cbor"
 
+require "dhall/ast"
+require "dhall/builtins"
+
 module Dhall
 	def self.from_binary(cbor_binary)
 		data = CBOR.decode(cbor_binary)
@@ -13,8 +16,6 @@ module Dhall
 	end
 
 	def self.decode(expression)
-		return expression if expression.is_a?(Expression)
-
 		BINARY.each do |match, use|
 			return use[expression] if expression.is_a?(match)
 		end
@@ -32,7 +33,10 @@ module Dhall
 
 	class Application
 		def self.decode(f, *args)
-			new(Dhall.decode(f), *args.map(&Dhall.method(:decode)))
+			new(
+				function: Dhall.decode(f),
+				arguments: args.map(&Dhall.method(:decode))
+			)
 		end
 	end
 
@@ -82,11 +86,11 @@ module Dhall
 	class Optional
 		def self.decode(type, value=nil)
 			if value.nil?
-				OptionalNone.new(Dhall.decode(type))
+				OptionalNone.new(type: Dhall.decode(type))
 			else
 				Optional.new(
-					Dhall.decode(value),
-					type.nil? ? type : Dhall.decode(type)
+					value: Dhall.decode(value),
+					type: type.nil? ? type : Dhall.decode(type)
 				)
 			end
 		end
@@ -208,7 +212,7 @@ module Dhall
 		::TrueClass  => ->(e) { Bool.new(value: e) },
 		::FalseClass => ->(e) { Bool.new(value: e) },
 		::Float      => ->(e) { Double.new(value: e) },
-		::String     => ->(e) { Variable.new(name: e) },
+		::String     => ->(e) { Builtins::ALL[e]&.new || Variable.new(name: e) },
 		::Integer    => ->(e) { Variable.new(index: e) },
 		::Array      => lambda { |e|
 			if e.length == 2 && e.first.is_a?(::String)

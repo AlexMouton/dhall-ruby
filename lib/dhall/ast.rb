@@ -2,26 +2,34 @@
 
 require "value_semantics"
 
+require "dhall/util"
+
 module Dhall
 	class Expression
 		def map_subexpressions(&_)
 			# For expressions with no subexpressions
 			self
 		end
+
+		def call(*args)
+			args.reduce(self) { |f, arg|
+				Application.new(function: f, arguments: [arg])
+			}.normalize
+		end
+
+		def to_proc
+			method(:call).to_proc
+		end
 	end
 
 	class Application < Expression
-		def initialize(f, *args)
-			if args.empty?
-				raise ArgumentError, "Application requires at least one argument"
-			end
-
-			@f = f
-			@args = args
-		end
+		include(ValueSemantics.for_attributes do
+			function Expression
+			arguments Util::ArrayOf.new(Expression, min: 1)
+		end)
 
 		def map_subexpressions(&block)
-			self.class.new(block[@f], *@args.map(&block))
+			with(function: block[function], arguments: arguments.map(&block))
 		end
 	end
 
@@ -88,6 +96,34 @@ module Dhall
 		def map_subexpressions(&block)
 			with(elements: elements.map(&block))
 		end
+
+		def type
+			# TODO: inferred element type
+		end
+
+		def map(type: nil, &block)
+			with(elements: elements.each_with_index.map(&block))
+		end
+
+		def reduce(z)
+			elements.reverse.reduce(z) { |acc, x| yield x, acc }
+		end
+
+		def length
+			elements.length
+		end
+
+		def first
+			Optional.new(value: elements.first, type: type)
+		end
+
+		def last
+			Optional.new(value: elements.last, type: type)
+		end
+
+		def reverse
+			with(elements: elements.reverse)
+		end
 	end
 
 	class EmptyList < List
@@ -98,30 +134,50 @@ module Dhall
 		def map_subexpressions(&block)
 			with(type: block[@type])
 		end
+
+		def map(type: nil)
+			type.nil? ? self : with(type: type)
+		end
+
+		def reduce(z)
+			z
+		end
+
+		def length
+			0
+		end
+
+		def first
+			OptionalNone.new(type: type)
+		end
+
+		def last
+			OptionalNone.new(type: type)
+		end
+
+		def reverse
+			self
+		end
 	end
 
 	class Optional < Expression
-		def initialize(value, type=nil)
-			raise TypeError, "value must not be nil" if value.nil?
-
-			@value = value
-			@type = type
-		end
+		include(ValueSemantics.for_attributes do
+			value Expression
+			type Either(nil, Expression), default: nil
+		end)
 
 		def map_subexpressions(&block)
-			self.class.new(block[@value], block[@type])
+			with(value: block[value], type: type.nil? ? type : block[type])
 		end
 	end
 
 	class OptionalNone < Optional
-		def initialize(type)
-			raise TypeError, "type must not be nil" if type.nil?
-
-			@type = type
-		end
+		include(ValueSemantics.for_attributes do
+			type Expression
+		end)
 
 		def map_subexpressions(&block)
-			self.class.new(block[@type])
+			with(type: block[@type])
 		end
 	end
 
@@ -138,6 +194,8 @@ module Dhall
 	end
 
 	class RecordType < Expression
+		attr_reader :record
+
 		def initialize(record)
 			@record = record
 		end
@@ -149,15 +207,25 @@ module Dhall
 				block[@type]
 			)
 		end
+
+		def eql?(other)
+			record == other.record
+		end
 	end
 
 	class Record < Expression
+		attr_reader :record
+
 		def initialize(record)
 			@record = record
 		end
 
 		def map_subexpressions(&block)
 			self.class.new(Hash[*@record.map { |k, v| [k, block[v]] }])
+		end
+
+		def eql?(other)
+			record == other.record
 		end
 	end
 
@@ -251,6 +319,26 @@ module Dhall
 		include(ValueSemantics.for_attributes do
 			value (0..Float::INFINITY)
 		end)
+
+		def to_s
+			value.to_s
+		end
+
+		def even?
+			value.even?
+		end
+
+		def odd?
+			value.odd?
+		end
+
+		def zero?
+			value.zero?
+		end
+
+		def pred
+			with(value: [0, value - 1].max)
+		end
 	end
 
 	class Integer < Number

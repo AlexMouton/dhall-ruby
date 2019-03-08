@@ -8,6 +8,10 @@ module Dhall
 			map_subexpressions(&:normalize)
 		end
 
+		def shift(amount, name, min_index)
+			map_subexpressions { |expr| expr.shift(amount, name, min_index) }
+		end
+
 		def fusion(*); end
 	end
 
@@ -35,6 +39,13 @@ module Dhall
 	end
 
 	class Function
+		def shift(amount, name, min_index)
+			return super unless var == name
+			with(
+				type: type.shift(amount, name, min_index),
+				body: body.shift(amount, name, min_index + 1)
+			)
+		end
 	end
 
 	class Forall; end
@@ -43,6 +54,10 @@ module Dhall
 	end
 
 	class Variable
+		def shift(amount, name, min_index)
+			return self if self.name != name || min_index > index
+			with(index: index + amount)
+		end
 	end
 
 	class Operator
@@ -274,6 +289,10 @@ module Dhall
 
 	class LetBlock
 		def normalize
+			desugar.normalize
+		end
+
+		def desugar
 			lets.reduce(body) { |inside, let|
 				Application.new(
 					function: Function.new(
@@ -283,7 +302,11 @@ module Dhall
 					),
 					arguments: [let.assign]
 				)
-			}.normalize
+			}
+		end
+
+		def shift(amount, name, min_index)
+			desugar.shift(amont, name, min_index)
 		end
 	end
 

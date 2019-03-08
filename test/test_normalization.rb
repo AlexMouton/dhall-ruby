@@ -20,4 +20,62 @@ class TestParser < Minitest::Test
 			)
 		end
 	end
+
+	def test_shift_1_x_0_x
+		assert_equal(
+			Dhall::Variable.new(name: "x", index: 1),
+			Dhall::Variable.new(name: "x").shift(1, "x", 0)
+		)
+	end
+
+	def test_shift_1_x_1_x
+		assert_equal(
+			Dhall::Variable.new(name: "x", index: 0),
+			Dhall::Variable.new(name: "x").shift(1, "x", 1)
+		)
+	end
+
+	def test_shift_1_x_0_y
+		assert_equal(
+			Dhall::Variable.new(name: "y", index: 0),
+			Dhall::Variable.new(name: "y").shift(1, "x", 0)
+		)
+	end
+
+	def test_shift_neg1_x_0_x1
+		assert_equal(
+			Dhall::Variable.new(name: "x", index: 0),
+			Dhall::Variable.new(name: "x", index: 1).shift(-1, "x", 0)
+		)
+	end
+
+	def test_shift_closed
+		assert_equal(
+			Dhall::Function.new(
+				var: "x",
+				type: Dhall::Variable.new(name: "Type"),
+				body: Dhall::Variable.new(name: "x", index: 0)
+			),
+			Dhall::Function.new(
+				var: "x",
+				type: Dhall::Variable.new(name: "Type"),
+				body: Dhall::Variable.new(name: "x", index: 0)
+			).shift(1, "x", 0)
+		)
+	end
+
+	def test_shift_free
+		assert_equal(
+			Dhall::Function.new(
+				var: "y",
+				type: Dhall::Variable.new(name: "Type"),
+				body: Dhall::Variable.new(name: "x", index: 1)
+			),
+			Dhall::Function.new(
+				var: "y",
+				type: Dhall::Variable.new(name: "Type"),
+				body: Dhall::Variable.new(name: "x", index: 0)
+			).shift(1, "x", 0)
+		)
+	end
 end

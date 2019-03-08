@@ -43,15 +43,19 @@ module Dhall
 	class Function
 		def self.decode(var_or_type, type_or_body, body_or_nil=nil)
 			if body_or_nil.nil?
-				new("_", Dhall.decode(var_or_type), Dhall.decode(type_or_body))
+				new(
+					var: "_",
+					type: Dhall.decode(var_or_type),
+					body: Dhall.decode(type_or_body)
+				)
 			else
-				unless var_or_type.is_a?(String)
-					raise TypeError, "Function var must be a String"
-				end
-
 				raise ArgumentError, "explicit var named _" if var_or_type == "_"
 
-				new(var_or_type, Dhall.decode(type_or_body), Dhall.decode(body_or_nil))
+				new(
+					var: var_or_type,
+					type: Dhall.decode(type_or_body),
+					body: Dhall.decode(body_or_nil)
+				)
 			end
 		end
 	end
@@ -61,7 +65,7 @@ module Dhall
 			Or, And, Equal, NotEqual,
 			Plus, Times,
 			TextConcatenate, ListConcatenate,
-			RecordMerge, RecordOverride, RecordTypeMerge,
+			RecursiveRecordMerge, RightBiasedRecordMerge, RecursiveRecordTypeMerge,
 			ImportFallback
 		].freeze
 
@@ -99,34 +103,46 @@ module Dhall
 	class Merge
 		def self.decode(record, input, type=nil)
 			new(
-				Dhall.decode(record),
-				Dhall.decode(input),
-				type.nil? ? nil : Dhall.decode(type)
+				record: Dhall.decode(record),
+				input: Dhall.decode(input),
+				type: type.nil? ? nil : Dhall.decode(type)
 			)
 		end
 	end
 
 	class RecordType
 		def self.decode(record)
-			new(Hash[record.map { |k, v| [k, Dhall.decode(v)] }])
+			if record.empty?
+				EmptyRecordType.new
+			else
+				new(Hash[record.map { |k, v| [k, Dhall.decode(v)] }])
+			end
 		end
 	end
 
 	class Record
 		def self.decode(record)
-			new(Hash[record.map { |k, v| [k, Dhall.decode(v)] }])
+			if record.empty?
+				EmptyRecord.new
+			else
+				new(Hash[record.map { |k, v| [k, Dhall.decode(v)] }])
+			end
 		end
 	end
 
-	class RecordFieldAccess
-		def self.decode(record, field)
-			new(Dhall.decode(record), field)
+	class RecordSelection
+		def self.decode(record, selector)
+			new(record: Dhall.decode(record), selector: selector)
 		end
 	end
 
 	class RecordProjection
-		def self.decode(record, *fields)
-			new(Dhall.decode(record), *fields)
+		def self.decode(record, *selectors)
+			if selectors.empty?
+				EmptyRecordProjection.new(record: Dhall.decode(record))
+			else
+				new(record: Dhall.decode(record), selectors: selectors)
+			end
 		end
 	end
 
@@ -137,11 +153,11 @@ module Dhall
 	end
 
 	class Union
-		def self.decode(tag, value, rest_of_type)
+		def self.decode(tag, value, alternatives)
 			new(
-				tag,
-				Dhall.decode(value),
-				Hash[rest_of_type.map { |k, v| [k, Dhall.decode(v)] }]
+				tag: tag,
+				value: Dhall.decode(value),
+				alternatives: UnionType.decode(alternatives)
 			)
 		end
 	end
@@ -190,12 +206,12 @@ module Dhall
 	class LetBlock
 		def self.decode(*parts)
 			new(
-				Dhall.decode(parts.pop),
-				*parts.each_slice(3).map do |(var, type, assign)|
+				body: Dhall.decode(parts.pop),
+				lets: parts.each_slice(3).map do |(var, type, assign)|
 					Let.new(
-						var,
-						Dhall.decode(assign),
-						type.nil? ? nil : Dhall.decode(type)
+						var:    var,
+						assign: Dhall.decode(assign),
+						type:   type.nil? ? nil : Dhall.decode(type)
 					)
 				end
 			)
@@ -204,7 +220,7 @@ module Dhall
 
 	class TypeAnnotation
 		def self.decode(value, type)
-			new(Dhall.decode(value), Dhall.decode(type))
+			new(value: Dhall.decode(value), type: Dhall.decode(type))
 		end
 	end
 
@@ -235,7 +251,7 @@ module Dhall
 		Merge,
 		RecordType,
 		Record,
-		RecordFieldAccess,
+		RecordSelection,
 		RecordProjection,
 		UnionType,
 		Union,

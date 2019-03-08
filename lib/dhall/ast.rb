@@ -21,6 +21,14 @@ module Dhall
 			method(:call).to_proc
 		end
 
+		def fetch(k)
+			RecordSelection.new(record: self, selector: k)
+		end
+
+		def slice(*keys)
+			RecordProjection.new(record: self, selectors: keys)
+		end
+
 		def +(other)
 			Operator::Plus.new(lhs: self, rhs: other)
 		end
@@ -71,6 +79,33 @@ module Dhall
 				Operator::Equal.new(lhs: self, rhs: other)
 			end
 		end
+
+		def deep_merge(other)
+			case other
+			when EmptyRecord
+				other.deep_merge(self)
+			else
+				Operator::RecursiveRecordMerge.new(lhs: self, rhs: other)
+			end
+		end
+
+		def merge(other)
+			case other
+			when EmptyRecord
+				other.merge(self)
+			else
+				Operator::RightBiasedRecordMerge.new(lhs: self, rhs: other)
+			end
+		end
+
+		def deep_merge_type(other)
+			case other
+			when EmptyRecordType
+				other.deep_merge_type(self)
+			else
+				Operator::RecursiveRecordTypeMerge.new(lhs: self, rhs: other)
+			end
+		end
 	end
 
 	class Application < Expression
@@ -85,14 +120,14 @@ module Dhall
 	end
 
 	class Function < Expression
-		def initialize(var, type, body)
-			@var = var
-			@type = type
-			@body = body
-		end
+		include(ValueSemantics.for_attributes do
+			var  ::String
+			type Either(nil, Expression) # nil is not allowed in proper Dhall
+			body Expression
+		end)
 
 		def map_subexpressions(&block)
-			self.class.new(@var, block[@type], block[@body])
+			with(var: var, type: type.nil? ? nil : block[type], body: block[body])
 		end
 	end
 
@@ -145,9 +180,9 @@ module Dhall
 		class Times < Operator; end
 		class TextConcatenate < Operator; end
 		class ListConcatenate < Operator; end
-		class RecordMerge < Operator; end
-		class RecordOverride < Operator; end
-		class RecordTypeMerge < Operator; end
+		class RecursiveRecordMerge < Operator; end
+		class RightBiasedRecordMerge < Operator; end
+		class RecursiveRecordTypeMerge < Operator; end
 		class ImportFallback < Operator; end
 	end
 
@@ -257,14 +292,18 @@ module Dhall
 	end
 
 	class Merge < Expression
-		def initialize(record, input, type)
-			@record = record
-			@input = input
-			@type = type
-		end
+		include(ValueSemantics.for_attributes do
+			record Expression
+			input  Expression
+			type  Either(Expression, nil)
+		end)
 
 		def map_subexpressions(&block)
-			self.class.new(block[@record], block[@input], block[@type])
+			with(
+				record: block[record],
+				input: block[input],
+				type: type.nil? ? nil : block[type]
+			)
 		end
 	end
 
@@ -272,19 +311,39 @@ module Dhall
 		attr_reader :record
 
 		def initialize(record)
+			raise ArgumentError, "You meant EmptyRecordType?" if record.empty?
 			@record = record
 		end
 
 		def map_subexpressions(&block)
-			self.class.new(
-				Hash[*@record.map { |k, v| [k, block[v]] }],
-				block[@input],
-				block[@type]
-			)
+			self.class.new(Hash[*@record.map { |k, v| [k, block[v]] }])
+		end
+
+		def deep_merge_type(other)
+			return super unless other.is_a?(RecordType)
+			self.class.new(Hash[record.merge(other.record) { |_, v1, v2|
+				v1.deep_merge_type(v2)
+			}.sort])
+		end
+
+		def ==(other)
+			other.respond_to?(:record) && record.to_a == other.record.to_a
 		end
 
 		def eql?(other)
-			record == other.record
+			self == other
+		end
+	end
+
+	class EmptyRecordType < Expression
+		include ValueSemantics.for_attributes { }
+
+		def map_subexpressions
+			self
+		end
+
+		def deep_merge_type(other)
+			other
 		end
 	end
 
@@ -292,6 +351,7 @@ module Dhall
 		attr_reader :record
 
 		def initialize(record)
+			raise ArgumentError, "You meant EmptyRecord?" if record.empty?
 			@record = record
 		end
 
@@ -299,63 +359,139 @@ module Dhall
 			self.class.new(Hash[*@record.map { |k, v| [k, block[v]] }])
 		end
 
+		def fetch(k, default=nil, &block)
+			record.fetch(k, *default, &block)
+		end
+
+		def slice(*keys)
+			if record.respond_to?(:slice)
+				self.class.new(record.slice(*keys))
+			else
+				self.class.new(record.select { |k, _| keys.include?(k) })
+			end
+		end
+
+		def deep_merge(other)
+			return super unless other.is_a?(Record)
+			self.class.new(Hash[record.merge(other.record) { |_, v1, v2|
+				v1.deep_merge(v2)
+			}.sort])
+		end
+
+		def merge(other)
+			return super unless other.is_a?(Record)
+			self.class.new(Hash[record.merge(other.record).sort])
+		end
+
+		def ==(other)
+			other.respond_to?(:record) && record.to_a == other.record.to_a
+		end
+
 		def eql?(other)
-			record == other.record
+			self == other
 		end
 	end
 
-	class RecordFieldAccess < Expression
-		def initialize(record, field)
-			raise TypeError, "field must be a String" unless field.is_a?(String)
+	class EmptyRecord < Expression
+		include ValueSemantics.for_attributes { }
 
-			@record = record
-			@field = field
+		def map_subexpressions
+			self
 		end
 
+		def fetch(k, default=nil, &block)
+			{}.fetch(k, *default, &block)
+		end
+
+		def slice(*)
+			self
+		end
+
+		def deep_merge(other)
+			other
+		end
+
+		def merge(other)
+			other
+		end
+	end
+
+	class RecordSelection < Expression
+		include(ValueSemantics.for_attributes do
+			record Expression
+			selector ::String
+		end)
+
 		def map_subexpressions(&block)
-			self.class.new(Hash[*@record.map { |k, v| [k, block[v]] }], @field)
+			with(record: block[record], selector: selector)
 		end
 	end
 
 	class RecordProjection < Expression
-		def initialize(record, *fields)
-			unless fields.all? { |x| x.is_a?(String) }
-				raise TypeError, "fields must be String"
-			end
-
-			@record = record
-			@fields = fields
-		end
+		include(ValueSemantics.for_attributes do
+			record Expression
+			selectors Util::ArrayOf.new(::String, min: 1)
+		end)
 
 		def map_subexpressions(&block)
-			self.class.new(Hash[*@record.map { |k, v| [k, block[v]] }], @fields)
+			with(record: block[record], selectors: selectors)
+		end
+	end
+
+	class EmptyRecordProjection < Expression
+		include(ValueSemantics.for_attributes do
+			record Expression
+		end)
+
+		def map_subexpressions(&block)
+			with(record: block[record])
 		end
 	end
 
 	class UnionType < Expression
+		attr_reader :record
+
 		def initialize(record)
 			@record = record
 		end
 
 		def map_subexpressions(&block)
-			self.class.new(Hash[*@record.map { |k, v| [k, block[v]] }])
+			self.class.new(Hash[@record.map { |k, v| [k, block[v]] }])
+		end
+
+		def ==(other)
+			other.respond_to?(:record) && record.to_a == other.record.to_a
+		end
+
+		def eql?(other)
+			self == other
+		end
+
+		def fetch(k)
+			Function.new(
+				var:  k,
+				type: record.fetch(k),
+				body: Union.new(
+					tag: k,
+					value: Variable.new(name: k),
+					alternatives: self.class.new(record.dup.tap { |r| r.delete(k) })
+				)
+			)
 		end
 	end
 
 	class Union < Expression
-		def initialize(tag, value, rest_of_type)
-			raise TypeError, "tag must be a string" unless tag.is_a?(String)
-
-			@tag = tag
-			@value = value
-			@rest_of_type = rest_of_type
-		end
+		include(ValueSemantics.for_attributes do
+			tag          ::String
+			value        Expression
+			alternatives UnionType
+		end)
 
 		def map_subexpressions(&block)
-			self.class.new(
-				@tag,
-				block[@value],
-				Hash[*@rest_of_type.map { |k, v| [k, block[v]] }]
+			with(
+				tag:          tag,
+				value:        block[value],
+				alternatives: block[alternatives]
 			)
 		end
 	end
@@ -436,12 +572,20 @@ module Dhall
 		include(ValueSemantics.for_attributes do
 			value ::Integer
 		end)
+
+		def to_s
+			"#{value >= 0 ? "+" : ""}#{value.to_s}"
+		end
 	end
 
 	class Double < Number
 		include(ValueSemantics.for_attributes do
 			value ::Float
 		end)
+
+		def to_s
+			value.to_s
+		end
 	end
 
 	class Text < Expression
@@ -516,43 +660,46 @@ module Dhall
 	end
 
 	class Let
-		def initialize(var, assign, type=nil)
-			@var = var
-			@assign = assign
-			@type = type
-		end
+		include(ValueSemantics.for_attributes do
+			var    ::String
+			assign Expression
+			type   Either(nil, Expression)
+		end)
 
 		def map_subexpressions(&block)
-			self.class.new(@var, block[@assign], block[@type])
+			with(
+				var: var,
+				assign: block[assign],
+				type: type.nil? ? nil : block[type]
+			)
 		end
 	end
 
 	class LetBlock < Expression
-		def initialize(body, *lets)
-			unless lets.all? { |x| x.is_a?(Let) }
-				raise TypeError, "LetBlock only contains Let"
-			end
-
-			@lets = lets
-			@body = body
-		end
+		include(ValueSemantics.for_attributes do
+			lets ArrayOf(Let)
+			body Expression
+		end)
 
 		def map_subexpressions(&block)
-			self.class.new(
-				block[@body],
-				*@lets.map { |let| let.map_subexpressions(&block) }
+			with(
+				body: block[body],
+				lets: lets.map { |let| let.map_subexpressions(&block) }
 			)
 		end
 	end
 
 	class TypeAnnotation < Expression
-		def initialize(value, type)
-			@value = value
-			@type = type
-		end
+		include(ValueSemantics.for_attributes do
+			value Expression
+			type  Expression
+		end)
 
 		def map_subexpressions(&block)
-			self.class.new(block[@value], block[@type])
+			with(
+				value: block[value],
+				type: block[type]
+			)
 		end
 	end
 end

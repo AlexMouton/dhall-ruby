@@ -19,6 +19,36 @@ module Dhall
 	module Builtins
 		# rubocop:disable Style/ClassAndModuleCamelCase
 
+		class Double_show < Builtin
+			def call(arg)
+				if arg.is_a?(Double)
+					Text.new(value: "\"#{arg.to_s}\"")
+				else
+					super
+				end
+			end
+		end
+
+		class Integer_show < Builtin
+			def call(arg)
+				if arg.is_a?(Integer)
+					Text.new(value: "\"#{arg.to_s}\"")
+				else
+					super
+				end
+			end
+		end
+
+		class Integer_toDouble < Builtin
+			def call(arg)
+				if arg.is_a?(Integer)
+					Double.new(value: arg.value.to_f)
+				else
+					super
+				end
+			end
+		end
+
 		class Natural_build < Builtin
 			def fusion(arg, *bogus)
 				if bogus.empty? &&
@@ -35,9 +65,9 @@ module Dhall
 				arg.call(
 					Variable.new(name: "Natural"),
 					Function.new(
-						"_",
-						Variable.new(name: "Natural"),
-						Operator::Plus.new(
+						var:  "_",
+						type: Variable.new(name: "Natural"),
+						body: Operator::Plus.new(
 							lhs: Variable.new(name: "_"),
 							rhs: Natural.new(value: 1)
 						)

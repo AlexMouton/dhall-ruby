@@ -126,6 +126,24 @@ module Dhall
 				lhs.normalize.concat(rhs.normalize)
 			end
 		end
+
+		class RecursiveRecordMerge
+			def normalize
+				lhs.normalize.deep_merge(rhs.normalize)
+			end
+		end
+
+		class RightBiasedRecordMerge
+			def normalize
+				lhs.normalize.merge(rhs.normalize)
+			end
+		end
+
+		class RecursiveRecordTypeMerge
+			def normalize
+				lhs.normalize.deep_merge_type(rhs.normalize)
+			end
+		end
 	end
 
 	class List
@@ -141,21 +159,58 @@ module Dhall
 	end
 
 	class Merge
+		def normalize
+			normalized = super
+			if normalized.record.is_a?(Record) && normalized.input.is_a?(Union)
+				normalized.record.fetch(normalized.input.tag).call(
+					normalized.input.value
+				)
+			else
+				normalized
+			end
+		end
 	end
 
 	class RecordType
+		def normalize
+			self.class.new(Hash[record.sort.map { |(k, v)| [k, v.normalize] }])
+		end
 	end
 
 	class Record
+		def normalize
+			self.class.new(Hash[record.sort.map { |(k, v)| [k, v.normalize] }])
+		end
 	end
 
-	class RecordFieldAccess
+	class EmptyRecord
+		def normalize
+			self
+		end
+	end
+
+	class RecordSelection
+		def normalize
+			record.normalize.fetch(selector)
+		end
 	end
 
 	class RecordProjection
+		def normalize
+			record.normalize.slice(*selectors)
+		end
+	end
+
+	class EmptyRecordProjection
+		def normalize
+			EmptyRecord.new
+		end
 	end
 
 	class UnionType
+		def normalize
+			self.class.new(Hash[super.record.sort])
+		end
 	end
 
 	class Union
@@ -218,8 +273,23 @@ module Dhall
 	end
 
 	class LetBlock
+		def normalize
+			lets.reduce(body) { |inside, let|
+				Application.new(
+					function: Function.new(
+						var: let.var,
+						type: let.type,
+						body: inside
+					),
+					arguments: [let.assign]
+				)
+			}.normalize
+		end
 	end
 
 	class TypeAnnotation
+		def normalize
+			value.normalize
+		end
 	end
 end

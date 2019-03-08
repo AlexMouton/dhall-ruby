@@ -20,6 +20,57 @@ module Dhall
 		def to_proc
 			method(:call).to_proc
 		end
+
+		def +(other)
+			Operator::Plus.new(lhs: self, rhs: other)
+		end
+
+		def *(other)
+			Operator::Times.new(lhs: self, rhs: other)
+		end
+
+		def <<(other)
+			Operator::TextConcatenate.new(lhs: self, rhs: other)
+		end
+
+		def concat(other)
+			case other
+			when EmptyList
+				self
+			else
+				Operator::ListConcatenate.new(lhs: self, rhs: other)
+			end
+		end
+
+		def &(other)
+			if self == other
+				self
+			elsif other.is_a?(Bool)
+				other & self
+			else
+				Operator::And.new(lhs: self, rhs: other)
+			end
+		end
+
+		def |(other)
+			if self == other
+				self
+			elsif other.is_a?(Bool)
+				other | self
+			else
+				Operator::Or.new(lhs: self, rhs: other)
+			end
+		end
+
+		def dhall_eq(other)
+			if self == other
+				Bool.new(value: true)
+			elsif other.is_a?(Bool)
+				other.dhall_eq(self)
+			else
+				Operator::Equal.new(lhs: self, rhs: other)
+			end
+		end
 	end
 
 	class Application < Expression
@@ -54,6 +105,18 @@ module Dhall
 
 		def reduce(when_true, when_false)
 			value ? when_true : when_false
+		end
+
+		def &(other)
+			reduce(other, with(value: false))
+		end
+
+		def |(other)
+			reduce(with(value: true), other)
+		end
+
+		def dhall_eq(other)
+			reduce(other, super)
 		end
 	end
 
@@ -124,6 +187,14 @@ module Dhall
 		def reverse
 			with(elements: elements.reverse)
 		end
+
+		def concat(other)
+			if other.is_a?(List) && !other.is_a?(EmptyList)
+				with(elements: elements + other.elements)
+			else
+				super
+			end
+		end
 	end
 
 	class EmptyList < List
@@ -157,6 +228,10 @@ module Dhall
 
 		def reverse
 			self
+		end
+
+		def concat(other)
+			other
 		end
 	end
 
@@ -320,6 +395,22 @@ module Dhall
 			value (0..Float::INFINITY)
 		end)
 
+		def +(other)
+			if other.is_a?(Natural)
+				with(value: value + other.value)
+			else
+				super
+			end
+		end
+
+		def *(other)
+			if other.is_a?(Natural)
+				with(value: value * other.value)
+			else
+				super
+			end
+		end
+
 		def to_s
 			value.to_s
 		end
@@ -357,6 +448,14 @@ module Dhall
 		include(ValueSemantics.for_attributes do
 			value ::String
 		end)
+
+		def <<(other)
+			if other.is_a?(Text)
+				with(value: value + other.value)
+			else
+				super
+			end
+		end
 	end
 
 	class TextLiteral < Expression

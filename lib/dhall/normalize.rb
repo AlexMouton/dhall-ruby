@@ -48,46 +48,19 @@ module Dhall
 	class Operator
 		class Or
 			def normalize
-				normalized = super
-				if normalized.lhs.is_a?(Bool)
-					normalized.lhs.reduce(Bool.new(value: true), normalized.rhs)
-				elsif normalized.rhs.is_a?(Bool)
-					normalized.rhs.reduce(Bool.new(value: true), normalized.lhs)
-				elsif normalized.lhs == normalized.rhs
-					normalized.lhs
-				else
-					normalized
-				end
+				lhs.normalize | rhs.normalize
 			end
 		end
 
 		class And
 			def normalize
-				normalized = super
-				if normalized.lhs.is_a?(Bool)
-					normalized.lhs.reduce(normalized.rhs, Bool.new(value: false))
-				elsif normalized.rhs.is_a?(Bool)
-					normalized.rhs.reduce(normalized.lhs, Bool.new(value: false))
-				elsif normalized.lhs == normalized.rhs
-					normalized.lhs
-				else
-					normalized
-				end
+				lhs.normalize & rhs.normalize
 			end
 		end
 
 		class Equal
 			def normalize
-				normalized = super
-				if normalized.lhs == Bool.new(value: true)
-					normalized.rhs
-				elsif normalized.rhs == Bool.new(value: true)
-					normalized.lhs
-				elsif normalized.lhs == normalized.rhs
-					Bool.new(value: true)
-				else
-					normalized
-				end
+				lhs.normalize.dhall_eq(rhs.normalize)
 			end
 		end
 
@@ -109,14 +82,12 @@ module Dhall
 		class Plus
 			def normalize
 				normalized = super
-				if [normalized.lhs, normalized.rhs].all? { |x| x.is_a?(Natural) }
-					Natural.new(value: normalized.lhs.value + normalized.rhs.value)
-				elsif normalized.lhs == Natural.new(value: 0)
+				if normalized.lhs == Natural.new(value: 0)
 					normalized.rhs
 				elsif normalized.rhs == Natural.new(value: 0)
 					normalized.lhs
 				else
-					normalized
+					normalized.lhs + normalized.rhs
 				end
 			end
 		end
@@ -124,9 +95,7 @@ module Dhall
 		class Times
 			def normalize
 				normalized = super
-				if [normalized.lhs, normalized.rhs].all? { |x| x.is_a?(Natural) }
-					Natural.new(value: normalized.lhs.value * normalized.rhs.value)
-				elsif [normalized.lhs, normalized.rhs]
+				if [normalized.lhs, normalized.rhs]
 				      .any? { |x| x == Natural.new(value: 0) }
 					Natural.new(value: 0)
 				elsif normalized.lhs == Natural.new(value: 1)
@@ -134,7 +103,7 @@ module Dhall
 				elsif normalized.rhs == Natural.new(value: 1)
 					normalized.lhs
 				else
-					normalized
+					normalized.lhs * normalized.rhs
 				end
 			end
 		end
@@ -142,32 +111,19 @@ module Dhall
 		class TextConcatenate
 			def normalize
 				normalized = super
-				if [normalized.lhs, normalized.rhs].all? { |x| x.is_a?(Text) }
-					Text.new(value: normalized.lhs.value + normalized.rhs.value)
-				elsif normalized.lhs == Text.new(value: "")
+				if normalized.lhs == Text.new(value: "")
 					normalized.rhs
 				elsif normalized.rhs == Text.new(value: "")
 					normalized.lhs
 				else
-					normalized
+					normalized.lhs << normalized.rhs
 				end
 			end
 		end
 
 		class ListConcatenate
 			def normalize
-				normalized = super
-				if [normalized.lhs, normalized.rhs].all? { |x| x.is_a?(List) }
-					List.new(
-						elements: normalized.lhs.elements + normalized.rhs.elements
-					)
-				elsif normalized.lhs.is_a?(EmptyList)
-					normalized.rhs
-				elsif normalized.rhs.is_a?(EmptyList)
-					normalized.lhs
-				else
-					normalized
-				end
+				lhs.normalize.concat(rhs.normalize)
 			end
 		end
 	end

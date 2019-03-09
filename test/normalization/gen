@@ -1,0 +1,5 @@
+#!/bin/sh
+
+cp -r "$(git root)"/dhall-lang/tests/normalization/success "$(git root)"/test/normalization/standard
+cd "$(git root)"/test/normalization/standard
+find . -name '*.dhall' -exec "$(git root)"/test/normalization/dhall-encode '{}' \;

@@ -53,12 +53,13 @@ module Dhall
 		end
 
 		def substitute(svar, with_expr)
-			with_expr = with_expr.shift(1, var, 0)
-			if var == svar.name
-				super(svar.with(index: svar.index + 1), with_expr)
-			else
-				super(svar, with_expr)
-			end
+			with(
+				type: type.substitute(svar, with_expr),
+				body: body.substitute(
+					var == svar.name ? svar.with(index: svar.index + 1) : svar,
+					with_expr.shift(1, var, 0)
+				)
+			)
 		end
 	end
 

@@ -332,7 +332,7 @@ module Dhall
 		end
 
 		def map_subexpressions(&block)
-			self.class.new(Hash[*@record.map { |k, v| [k, block[v]] }])
+			self.class.new(Hash[@record.map { |k, v| [k, block[v]] }])
 		end
 
 		def deep_merge_type(other)
@@ -372,7 +372,7 @@ module Dhall
 		end
 
 		def map_subexpressions(&block)
-			self.class.new(Hash[*@record.map { |k, v| [k, block[v]] }])
+			self.class.new(Hash[@record.map { |k, v| [k, block[v]] }])
 		end
 
 		def fetch(k, default=nil, &block)

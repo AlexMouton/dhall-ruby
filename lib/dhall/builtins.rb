@@ -22,7 +22,7 @@ module Dhall
 		class Double_show < Builtin
 			def call(arg)
 				if arg.is_a?(Double)
-					Text.new(value: "\"#{arg.to_s}\"")
+					Text.new(value: arg.to_s)
 				else
 					super
 				end
@@ -32,7 +32,7 @@ module Dhall
 		class Integer_show < Builtin
 			def call(arg)
 				if arg.is_a?(Integer)
-					Text.new(value: "\"#{arg.to_s}\"")
+					Text.new(value: arg.to_s)
 				else
 					super
 				end

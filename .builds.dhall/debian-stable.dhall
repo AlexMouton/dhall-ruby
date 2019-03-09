@@ -1,9 +1,10 @@
 {
 	image = "debian/stable",
 	packages = [
-		"ruby",
 		"bundler",
-		"rubocop"
+		"git-extras",
+		"rubocop",
+		"ruby"
 	],
 	repositories = {
 		backports = "http://ftp.ca.debian.org/debian/ stretch-backports main"

@@ -9,8 +9,9 @@ tasks:
     test/normalization/gen
     bundle exec ruby -Ilib test/test_binary.rb
 packages:
-- ruby
 - bundler
+- git-extras
 - rubocop
+- ruby
 repositories:
   backports: http://ftp.ca.debian.org/debian/ stretch-backports main

@@ -250,7 +250,7 @@ module Dhall
 		RecordProjection,
 		UnionType,
 		Union,
-		Constructors,
+		nil,
 		If,
 		Natural,
 		Integer,

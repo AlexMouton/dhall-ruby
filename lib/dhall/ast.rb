@@ -541,17 +541,6 @@ module Dhall
 		end
 	end
 
-	class Constructors < Expression
-		extend Gem::Deprecate
-
-		def initialize(arg)
-			@arg = arg
-		end
-		DEPRECATION_WIKI = "https://github.com/dhall-lang/dhall-lang/wiki/" \
-		                   "Migration:-Deprecation-of-constructors-keyword"
-		deprecate :initialize, DEPRECATION_WIKI, 2019, 4
-	end
-
 	class If < Expression
 		include(ValueSemantics.for_attributes do
 			predicate Expression

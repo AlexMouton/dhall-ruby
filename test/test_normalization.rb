@@ -28,7 +28,6 @@ class TestNormalization < Minitest::Test
 		test = path.relative_path_from(STANDARD).to_s.sub(/A\.dhallb$/, "")
 		next if test =~ /prelude\//
 		next if test =~ /remoteSystems/
-		next if test =~ /constructorsId$/
 		next if test =~ /multiline\//
 
 		define_method("test_#{test.gsub(/\//, "_")}") do

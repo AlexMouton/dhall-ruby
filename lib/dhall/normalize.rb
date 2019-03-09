@@ -132,10 +132,7 @@ module Dhall
 		class Times
 			def normalize
 				normalized = super
-				if [normalized.lhs, normalized.rhs]
-				   .any? { |x| x == Natural.new(value: 0) }
-					Natural.new(value: 0)
-				elsif normalized.lhs == Natural.new(value: 1)
+				if normalized.lhs == Natural.new(value: 1)
 					normalized.rhs
 				elsif normalized.rhs == Natural.new(value: 1)
 					normalized.lhs
@@ -255,18 +252,11 @@ module Dhall
 
 	class If
 		def normalize
-			if (pred = predicate.normalize).is_a?(Bool)
-				return pred.reduce(self.then, self.else)
-			end
-
-			normalized = with(
-				predicate: pred,
-				then:      self.then.normalize,
-				else:      self.else.normalize
-			)
-
-			if normalized.trivial?
-				pred
+			normalized = super
+			if normalized.predicate.is_a?(Bool)
+				normalized.predicate.reduce(normalized.then, normalized.else)
+			elsif normalized.trivial?
+				normalized.predicate
 			elsif normalized.then == normalized.else
 				normalized.then
 			else
@@ -292,17 +282,23 @@ module Dhall
 
 	class TextLiteral
 		def normalize
-			chunks = super.chunks.flat_map { |chunk|
-				chunk.is_a?(TextLiteral) ? chunk.chunks : chunk
-			}.chunk { |x| x.is_a?(Text) }.flat_map do |(_, group)|
-				if group.first.is_a?(Text)
-					[Text.new(value: group.map(&:value).join)]
-				else
-					group
+			chunks =
+				super
+				.flatten.chunks.chunk { |x| x.is_a?(Text) }.flat_map do |(_, group)|
+					if group.first.is_a?(Text)
+						[Text.new(value: group.map(&:value).join)]
+					else
+						group
+					end
 				end
-			end
 
 			chunks.length == 1 ? chunks.first : with(chunks: chunks)
+		end
+
+		def flatten
+			with(chunks: chunks.flat_map do |chunk|
+				chunk.is_a?(TextLiteral) ? chunk.chunks : chunk
+			end)
 		end
 	end
 

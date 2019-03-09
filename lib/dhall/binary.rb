@@ -42,20 +42,15 @@ module Dhall
 
 	class Function
 		def self.decode(var_or_type, type_or_body, body_or_nil=nil)
+			type_or_body = Dhall.decode(type_or_body)
+
 			if body_or_nil.nil?
-				new(
-					var:  "_",
-					type: Dhall.decode(var_or_type),
-					body: Dhall.decode(type_or_body)
-				)
+				of_arguments(Dhall.decode(var_or_type), body: type_or_body)
 			else
 				raise ArgumentError, "explicit var named _" if var_or_type == "_"
 
-				new(
-					var:  var_or_type,
-					type: Dhall.decode(type_or_body),
-					body: Dhall.decode(body_or_nil)
-				)
+				body_or_nil = Dhall.decode(body_or_nil)
+				new(var: var_or_type, type: type_or_body, body: body_or_nil)
 			end
 		end
 	end

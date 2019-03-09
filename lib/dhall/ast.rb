@@ -34,7 +34,12 @@ module Dhall
 		end
 
 		def *(other)
-			Operator::Times.new(lhs: self, rhs: other)
+			case other
+			when Natural
+				other * self
+			else
+				Operator::Times.new(lhs: self, rhs: other)
+			end
 		end
 
 		def <<(other)
@@ -126,6 +131,16 @@ module Dhall
 			body Expression
 		end)
 
+		def self.of_arguments(*types, body:)
+			types.reverse.reduce(body) do |inner, type|
+				new(
+					var:  "_",
+					type: type,
+					body: inner
+				)
+			end
+		end
+
 		def map_subexpressions(&block)
 			with(var: var, type: type.nil? ? nil : block[type], body: block[body])
 		end
@@ -169,6 +184,10 @@ module Dhall
 			name String, default: "_"
 			index (0..Float::INFINITY), default: 0
 		end)
+
+		def self.[](name, index=0)
+			new(name: name, index: index)
+		end
 	end
 
 	class Operator < Expression
@@ -199,6 +218,10 @@ module Dhall
 		include(ValueSemantics.for_attributes do
 			elements ArrayOf(Expression)
 		end)
+
+		def self.of(*args)
+			List.new(elements: args)
+		end
 
 		def map_subexpressions(&block)
 			with(elements: elements.map(&block))
@@ -562,6 +585,7 @@ module Dhall
 		end
 
 		def *(other)
+			return self if zero?
 			if other.is_a?(Natural)
 				with(value: value * other.value)
 			else

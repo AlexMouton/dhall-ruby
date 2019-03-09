@@ -14,6 +14,33 @@ module Dhall
 				Application.new(function: f, arguments: [arg])
 			end
 		end
+
+		protected
+
+		def attributes
+			self.class.value_semantics.attributes
+		end
+
+		def fill_next_if_valid(value)
+			with(attributes.each_with_object({}) do |attr, h|
+				if !send(attr.name).nil?
+					h[attr.name] = send(attr.name)
+				elsif attr.validate?(value)
+					h[attr.name] = value
+					value = nil
+				else
+					return nil
+				end
+			end)
+		end
+
+		def full?
+			attributes.all? { |attr| !send(attr.name).nil? }
+		end
+
+		def fill_or_call(arg, &block)
+			full? ? block[arg] : fill_next_if_valid(arg)
+		end
 	end
 
 	module Builtins
@@ -64,13 +91,9 @@ module Dhall
 			def call(arg)
 				arg.call(
 					Variable.new(name: "Natural"),
-					Function.new(
-						var:  "_",
-						type: Variable.new(name: "Natural"),
-						body: Operator::Plus.new(
-							lhs: Variable.new(name: "_"),
-							rhs: Natural.new(value: 1)
-						)
+					Function.of_arguments(
+						Variable.new(name: "Natural"),
+						body: Variable["_"] + Natural.new(value: 1)
 					),
 					Natural.new(value: 0)
 				)
@@ -88,28 +111,20 @@ module Dhall
 		end
 
 		class Natural_fold < Builtin
-			def initialize(nat=nil, type=nil, f=nil)
-				@nat = nat
-				@type = type
-				@f = f
-			end
+			include(ValueSemantics.for_attributes do
+				nat  Either(nil, Natural),    default: nil
+				type Either(nil, Expression), default: nil
+				f    Either(nil, Expression), default: nil
+			end)
 
 			def call(arg)
-				if @nat.nil? && arg.is_a?(Natural)
-					Natural_fold.new(arg)
-				elsif !@nat.nil? && @type.nil?
-					Natural_fold.new(@nat, arg)
-				elsif !@nat.nil? && !@type.nil? && @f.nil?
-					Natural_fold.new(@nat, @type, arg)
-				elsif !@nat.nil? && !@type.nil? && !@f.nil?
+				fill_or_call(arg) do
 					if @nat.zero?
 						arg.normalize
 					else
-						@f.call(Natural_fold.new(@nat.pred, @type, @f).call(arg))
+						@f.call(with(nat: nat.pred).call(arg))
 					end
-				else
-					super
-				end
+				end || super
 			end
 		end
 
@@ -154,9 +169,9 @@ module Dhall
 		end
 
 		class List_build < Builtin
-			def initialize(type=nil)
-				@type = type
-			end
+			include(ValueSemantics.for_attributes do
+				type Either(nil, Expression), default: nil
+			end)
 
 			def fusion(*args)
 				_, arg, = args
@@ -171,57 +186,38 @@ module Dhall
 			end
 
 			def call(arg)
-				if @type.nil?
-					self.class.new(arg)
-				else
+				fill_or_call(arg) do
 					arg.call(
-						Application.new(
-							function:  Variable.new(name: "List"),
-							arguments: [@type]
-						),
-						Function.new(
-							var:  "_",
-							type: @type,
-							body: Function.new(
-								var:  "_",
-								type: Application.new(
-									function:  Variable.new(name: "List"),
-									arguments: [@type.shift(1, "_", 0)]
-								),
-								body: Operator::ListConcatenate.new(
-									lhs: List.new(
-										elements: [Variable.new(name: "_", index: 1)]
-									),
-									rhs: Variable.new(name: "_")
-								)
-							)
-						),
-						EmptyList.new(type: @type)
+						Variable["List"].call(type),
+						cons,
+						EmptyList.new(type: type)
 					)
 				end
+			end
+
+			protected
+
+			def cons
+				Function.of_arguments(
+					type,
+					Variable["List"].call(type.shift(1, "_", 0)),
+					body: List.of(Variable["_", 1]).concat(Variable["_"])
+				)
 			end
 		end
 
 		class List_fold < Builtin
-			def initialize(ltype=nil, list=nil, ztype=nil, f=nil)
-				@ltype = ltype
-				@list = list
-				@ztype = ztype
-				@f = f
-			end
+			include(ValueSemantics.for_attributes do
+				ltype Either(nil, Expression), default: nil
+				list  Either(nil, List),       default: nil
+				ztype Either(nil, Expression), default: nil
+				f     Either(nil, Expression), default: nil
+			end)
 
 			def call(arg)
-				if @ltype.nil?
-					List_fold.new(arg)
-				elsif @list.nil?
-					List_fold.new(@ltype, arg)
-				elsif @ztype.nil?
-					List_fold.new(@ltype, @list, arg)
-				elsif @f.nil?
-					List_fold.new(@ltype, @list, @ztype, arg)
-				else
-					@list.reduce(arg, &@f).normalize
-				end
+				fill_or_call(arg) do
+					list.reduce(arg, &f).normalize
+				end || super
 			end
 		end
 
@@ -242,10 +238,7 @@ module Dhall
 						"index" => Variable.new(name: "Natural"),
 						"value" => arg.type
 					)) do |x, idx|
-						Record.new(
-							"index" => Natural.new(value: idx),
-							"value" => x
-						)
+						Record.new("index" => Natural.new(value: idx), "value" => x)
 					end
 				else
 					super
@@ -284,9 +277,9 @@ module Dhall
 		end
 
 		class Optional_build < Builtin
-			def initialize(type=nil)
-				@type = type
-			end
+			include(ValueSemantics.for_attributes do
+				type Either(nil, Expression), default: nil
+			end)
 
 			def fusion(*args)
 				_, arg, = args
@@ -301,50 +294,38 @@ module Dhall
 			end
 
 			def call(arg)
-				if @type.nil?
-					self.class.new(arg)
-				else
+				fill_or_call(arg) do
 					arg.call(
-						Application.new(
-							function:  Variable.new(name: "Optional"),
-							arguments: [@type]
-						),
-						Function.new(
-							var:  "_",
-							type: @type,
-							body: Optional.new(
-								value: Variable.new(name: "_"),
-								type:  @type
-							)
-						),
-						OptionalNone.new(type: @type)
+						Variable["Optional"].call(type),
+						some,
+						OptionalNone.new(type: type)
 					)
 				end
+			end
+
+			protected
+
+			def some
+				Function.of_arguments(
+					type,
+					body: Optional.new(
+						value: Variable["_"],
+						type:  type
+					)
+				)
 			end
 		end
 
 		class Optional_fold < Builtin
-			def initialize(type=nil, optional=nil, ztype=nil, f=nil)
-				@type = type
-				@optional = optional
-				@ztype = ztype
-				@f = f
-			end
+			include(ValueSemantics.for_attributes do
+				type     Either(nil, Expression), default: nil
+				optional Either(nil, Optional),   default: nil
+				ztype    Either(nil, Expression), default: nil
+				f        Either(nil, Expression), default: nil
+			end)
 
 			def call(arg)
-				if @type.nil?
-					self.class.new(arg)
-				elsif arg.is_a?(Optional)
-					self.class.new(@type, arg)
-				elsif !@optional.nil? && @ztype.nil?
-					self.class.new(@type, @optional, arg)
-				elsif !@optional.nil? && @f.nil?
-					self.class.new(@type, @optional, @ztype, arg)
-				elsif !@optional.nil?
-					@optional.reduce(arg, &@f)
-				else
-					super
-				end
+				fill_or_call(arg) { @optional.reduce(arg, &f) } || super
 			end
 		end
 

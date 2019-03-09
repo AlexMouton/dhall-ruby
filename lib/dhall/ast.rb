@@ -129,6 +129,14 @@ module Dhall
 		def map_subexpressions(&block)
 			with(var: var, type: type.nil? ? nil : block[type], body: block[body])
 		end
+
+		def call(*args)
+			return super if args.length > 1
+			body.substitute(
+				Variable.new(name: var),
+				args.first.shift(1, var, 0)
+			).shift(-1, var, 0).normalize
+		end
 	end
 
 	class Forall < Function; end
@@ -279,6 +287,10 @@ module Dhall
 		def map_subexpressions(&block)
 			with(value: block[value], type: type.nil? ? type : block[type])
 		end
+
+		def reduce(_, &block)
+			block[value]
+		end
 	end
 
 	class OptionalNone < Optional
@@ -288,6 +300,10 @@ module Dhall
 
 		def map_subexpressions(&block)
 			with(type: block[@type])
+		end
+
+		def reduce(z)
+			z
 		end
 	end
 

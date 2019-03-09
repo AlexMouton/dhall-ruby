@@ -12,6 +12,10 @@ module Dhall
 			map_subexpressions { |expr| expr.shift(amount, name, min_index) }
 		end
 
+		def substitute(var, with_expr)
+			map_subexpressions { |expr| expr.substitute(var, with_expr) }
+		end
+
 		def fusion(*); end
 	end
 
@@ -21,7 +25,8 @@ module Dhall
 			normalized = super
 			return normalized.fuse if normalized.fuse
 
-			if normalized.function.is_a?(Builtin)
+			if normalized.function.is_a?(Builtin) ||
+			   normalized.function.is_a?(Function)
 				return normalized.function.call(*normalized.arguments)
 			end
 
@@ -46,6 +51,15 @@ module Dhall
 				body: body.shift(amount, name, min_index + 1)
 			)
 		end
+
+		def substitute(svar, with_expr)
+			with_expr = with_expr.shift(1, var, 0)
+			if var == svar.name
+				super(svar.with(index: svar.index + 1), with_expr)
+			else
+				super(svar, with_expr)
+			end
+		end
 	end
 
 	class Forall; end
@@ -57,6 +71,10 @@ module Dhall
 		def shift(amount, name, min_index)
 			return self if self.name != name || min_index > index
 			with(index: index + amount)
+		end
+
+		def substitute(var, with_expr)
+			self == var ? with_expr : self
 		end
 	end
 
@@ -293,7 +311,7 @@ module Dhall
 		end
 
 		def desugar
-			lets.reduce(body) { |inside, let|
+			lets.reverse.reduce(body) { |inside, let|
 				Application.new(
 					function: Function.new(
 						var: let.var,

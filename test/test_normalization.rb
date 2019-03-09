@@ -78,4 +78,34 @@ class TestParser < Minitest::Test
 			).shift(1, "x", 0)
 		)
 	end
+
+	def test_substitute_variable
+		assert_equal(
+			Dhall::Natural.new(value: 1),
+			Dhall::Variable.new(name: "x", index: 0).substitute(
+				Dhall::Variable.new(name: "x", index: 0),
+				Dhall::Natural.new(value: 1)
+			)
+		)
+	end
+
+	def test_substitute_variable_different_name
+		assert_equal(
+			Dhall::Variable.new(name: "y", index: 0),
+			Dhall::Variable.new(name: "y", index: 0).substitute(
+				Dhall::Variable.new(name: "x", index: 0),
+				Dhall::Natural.new(value: 1)
+			)
+		)
+	end
+
+	def test_substitute_variable_different_index
+		assert_equal(
+			Dhall::Variable.new(name: "x", index: 1),
+			Dhall::Variable.new(name: "x", index: 1).substitute(
+				Dhall::Variable.new(name: "x", index: 0),
+				Dhall::Natural.new(value: 1)
+			)
+		)
+	end
 end

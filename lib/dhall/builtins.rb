@@ -154,6 +154,10 @@ module Dhall
 		end
 
 		class List_build < Builtin
+			def initialize(type=nil)
+				@type = type
+			end
+
 			def fusion(*args)
 				_, arg, = args
 				if arg.is_a?(Application) &&
@@ -163,6 +167,37 @@ module Dhall
 					arg.arguments.first
 				else
 					super
+				end
+			end
+
+			def call(arg)
+				if @type.nil?
+					self.class.new(arg)
+				else
+					arg.call(
+						Application.new(
+							function: Variable.new(name: "List"),
+							arguments: [@type]
+						),
+						Function.new(
+							var: "_",
+							type: @type,
+							body: Function.new(
+								var:  "_",
+								type: Application.new(
+									function: Variable.new(name: "List"),
+									arguments: [@type.shift(1, "_", 0)]
+								),
+								body: Operator::ListConcatenate.new(
+									lhs: List.new(
+										elements: [Variable.new(name: "_", index: 1)]
+									),
+									rhs: Variable.new(name: "_")
+								)
+							),
+						),
+						EmptyList.new(type: @type)
+					)
 				end
 			end
 		end
@@ -249,6 +284,10 @@ module Dhall
 		end
 
 		class Optional_build < Builtin
+			def initialize(type=nil)
+				@type = type
+			end
+
 			def fusion(*args)
 				_, arg, = args
 				if arg.is_a?(Application) &&
@@ -260,9 +299,54 @@ module Dhall
 					super
 				end
 			end
+
+			def call(arg)
+				if @type.nil?
+					self.class.new(arg)
+				else
+					arg.call(
+						Application.new(
+							function: Variable.new(name: "Optional"),
+							arguments: [@type]
+						),
+						Function.new(
+							var: "_",
+							type: @type,
+							body: Optional.new(
+								value: Variable.new(name: "_"),
+								type: @type
+							)
+						),
+						OptionalNone.new(type: @type)
+					)
+				end
+			end
+
 		end
 
 		class Optional_fold < Builtin
+			def initialize(type=nil, optional=nil, ztype=nil, f=nil)
+				@type = type
+				@optional = optional
+				@ztype = ztype
+				@f = f
+			end
+
+			def call(arg)
+				if @type.nil?
+					self.class.new(arg)
+				elsif arg.is_a?(Optional)
+					self.class.new(@type, arg)
+				elsif !@optional.nil? && @ztype.nil?
+					self.class.new(@type, @optional, arg)
+				elsif !@optional.nil? && @f.nil?
+					self.class.new(@type, @optional, @ztype, arg)
+				elsif !@optional.nil?
+					@optional.reduce(arg, &@f)
+				else
+					super
+				end
+			end
 		end
 
 		class Text_show < Builtin

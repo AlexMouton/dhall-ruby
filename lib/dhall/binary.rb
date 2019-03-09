@@ -7,12 +7,7 @@ require "dhall/builtins"
 
 module Dhall
 	def self.from_binary(cbor_binary)
-		data = CBOR.decode(cbor_binary)
-		if data.is_a?(Array) && data[0] == "5.0.0"
-			decode(data[1])
-		else
-			decode(data)
-		end
+		decode(CBOR.decode(cbor_binary))
 	end
 
 	def self.decode(expression)

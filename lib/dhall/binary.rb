@@ -34,7 +34,7 @@ module Dhall
 	class Application
 		def self.decode(f, *args)
 			new(
-				function: Dhall.decode(f),
+				function:  Dhall.decode(f),
 				arguments: args.map(&Dhall.method(:decode))
 			)
 		end
@@ -44,7 +44,7 @@ module Dhall
 		def self.decode(var_or_type, type_or_body, body_or_nil=nil)
 			if body_or_nil.nil?
 				new(
-					var: "_",
+					var:  "_",
 					type: Dhall.decode(var_or_type),
 					body: Dhall.decode(type_or_body)
 				)
@@ -52,7 +52,7 @@ module Dhall
 				raise ArgumentError, "explicit var named _" if var_or_type == "_"
 
 				new(
-					var: var_or_type,
+					var:  var_or_type,
 					type: Dhall.decode(type_or_body),
 					body: Dhall.decode(body_or_nil)
 				)
@@ -94,7 +94,7 @@ module Dhall
 			else
 				Optional.new(
 					value: Dhall.decode(value),
-					type: type.nil? ? type : Dhall.decode(type)
+					type:  type.nil? ? type : Dhall.decode(type)
 				)
 			end
 		end
@@ -104,8 +104,8 @@ module Dhall
 		def self.decode(record, input, type=nil)
 			new(
 				record: Dhall.decode(record),
-				input: Dhall.decode(input),
-				type: type.nil? ? nil : Dhall.decode(type)
+				input:  Dhall.decode(input),
+				type:   type.nil? ? nil : Dhall.decode(type)
 			)
 		end
 	end
@@ -155,8 +155,8 @@ module Dhall
 	class Union
 		def self.decode(tag, value, alternatives)
 			new(
-				tag: tag,
-				value: Dhall.decode(value),
+				tag:          tag,
+				value:        Dhall.decode(value),
 				alternatives: UnionType.decode(alternatives)
 			)
 		end
@@ -166,8 +166,8 @@ module Dhall
 		def self.decode(pred, thn, els)
 			new(
 				predicate: Dhall.decode(pred),
-				then: Dhall.decode(thn),
-				else: Dhall.decode(els)
+				then:      Dhall.decode(thn),
+				else:      Dhall.decode(els)
 			)
 		end
 	end

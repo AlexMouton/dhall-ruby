@@ -22,6 +22,7 @@ module Dhall
 	class Application
 		def normalize
 			return fuse.normalize if fuse
+
 			normalized = super
 			return normalized.fuse if normalized.fuse
 
@@ -35,17 +36,18 @@ module Dhall
 
 		def fuse
 			if function.is_a?(Application)
-				@fused ||= function.function.fusion(*function.arguments, *arguments)
-				return @fused if @fused
+				@fuse ||= function.function.fusion(*function.arguments, *arguments)
+				return @fuse if @fuse
 			end
 
-			@fused ||= function.fusion(*arguments)
+			@fuse ||= function.fusion(*arguments)
 		end
 	end
 
 	class Function
 		def shift(amount, name, min_index)
 			return super unless var == name
+
 			with(
 				type: type.shift(amount, name, min_index),
 				body: body.shift(amount, name, min_index + 1)
@@ -71,6 +73,7 @@ module Dhall
 	class Variable
 		def shift(amount, name, min_index)
 			return self if self.name != name || min_index > index
+
 			with(index: index + amount)
 		end
 
@@ -130,7 +133,7 @@ module Dhall
 			def normalize
 				normalized = super
 				if [normalized.lhs, normalized.rhs]
-				      .any? { |x| x == Natural.new(value: 0) }
+				   .any? { |x| x == Natural.new(value: 0) }
 					Natural.new(value: 0)
 				elsif normalized.lhs == Natural.new(value: 1)
 					normalized.rhs
@@ -258,8 +261,8 @@ module Dhall
 
 			normalized = with(
 				predicate: pred,
-				then: self.then.normalize,
-				else: self.else.normalize
+				then:      self.then.normalize,
+				else:      self.else.normalize
 			)
 
 			if normalized.trivial?
@@ -312,20 +315,20 @@ module Dhall
 		end
 
 		def desugar
-			lets.reverse.reduce(body) { |inside, let|
+			lets.reverse.reduce(body) do |inside, let|
 				Application.new(
-					function: Function.new(
-						var: let.var,
+					function:  Function.new(
+						var:  let.var,
 						type: let.type,
 						body: inside
 					),
 					arguments: [let.assign]
 				)
-			}
+			end
 		end
 
 		def shift(amount, name, min_index)
-			desugar.shift(amont, name, min_index)
+			desugar.shift(amount, name, min_index)
 		end
 	end
 

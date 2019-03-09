@@ -4,6 +4,10 @@ AllCops:
 Metrics/LineLength:
   Max: 80
 
+Layout/AlignHash:
+  EnforcedHashRocketStyle: table
+  EnforcedColonStyle: table
+
 Layout/Tab:
   Enabled: false
 
@@ -37,7 +41,13 @@ Style/Documentation:
 Style/FormatString:
   EnforcedStyle: percent
 
+Style/RegexpLiteral:
+  AllowInnerSlashes: true
+
 Style/StringLiterals:
+  EnforcedStyle: double_quotes
+
+Style/StringLiteralsInInterpolation:
   EnforcedStyle: double_quotes
 
 Style/SymbolArray:

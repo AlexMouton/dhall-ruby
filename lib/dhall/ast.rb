@@ -132,6 +132,7 @@ module Dhall
 
 		def call(*args)
 			return super if args.length > 1
+
 			body.substitute(
 				Variable.new(name: var),
 				args.first.shift(1, var, 0)
@@ -311,14 +312,14 @@ module Dhall
 		include(ValueSemantics.for_attributes do
 			record Expression
 			input  Expression
-			type  Either(Expression, nil)
+			type   Either(Expression, nil)
 		end)
 
 		def map_subexpressions(&block)
 			with(
 				record: block[record],
-				input: block[input],
-				type: type.nil? ? nil : block[type]
+				input:  block[input],
+				type:   type.nil? ? nil : block[type]
 			)
 		end
 	end
@@ -328,6 +329,7 @@ module Dhall
 
 		def initialize(record)
 			raise ArgumentError, "You meant EmptyRecordType?" if record.empty?
+
 			@record = record
 		end
 
@@ -337,6 +339,7 @@ module Dhall
 
 		def deep_merge_type(other)
 			return super unless other.is_a?(RecordType)
+
 			self.class.new(Hash[record.merge(other.record) { |_, v1, v2|
 				v1.deep_merge_type(v2)
 			}.sort])
@@ -352,7 +355,7 @@ module Dhall
 	end
 
 	class EmptyRecordType < Expression
-		include ValueSemantics.for_attributes { }
+		include(ValueSemantics.for_attributes {})
 
 		def map_subexpressions
 			self
@@ -368,6 +371,7 @@ module Dhall
 
 		def initialize(record)
 			raise ArgumentError, "You meant EmptyRecord?" if record.empty?
+
 			@record = record
 		end
 
@@ -389,6 +393,7 @@ module Dhall
 
 		def deep_merge(other)
 			return super unless other.is_a?(Record)
+
 			self.class.new(Hash[record.merge(other.record) { |_, v1, v2|
 				v1.deep_merge(v2)
 			}.sort])
@@ -396,6 +401,7 @@ module Dhall
 
 		def merge(other)
 			return super unless other.is_a?(Record)
+
 			self.class.new(Hash[record.merge(other.record).sort])
 		end
 
@@ -409,7 +415,7 @@ module Dhall
 	end
 
 	class EmptyRecord < Expression
-		include ValueSemantics.for_attributes { }
+		include(ValueSemantics.for_attributes {})
 
 		def map_subexpressions
 			self
@@ -488,8 +494,8 @@ module Dhall
 				var:  k,
 				type: record.fetch(k),
 				body: Union.new(
-					tag: k,
-					value: Variable.new(name: k),
+					tag:          k,
+					value:        Variable.new(name: k),
 					alternatives: self.class.new(record.dup.tap { |r| r.delete(k) })
 				)
 			)
@@ -533,8 +539,8 @@ module Dhall
 		def map_subexpressions(&block)
 			with(
 				predicate: block[predicate],
-				then: block[self.then],
-				else: block[self.else]
+				then:      block[self.then],
+				else:      block[self.else]
 			)
 		end
 	end
@@ -590,7 +596,7 @@ module Dhall
 		end)
 
 		def to_s
-			"#{value >= 0 ? "+" : ""}#{value.to_s}"
+			"#{value >= 0 ? "+" : ""}#{value}"
 		end
 	end
 
@@ -684,9 +690,9 @@ module Dhall
 
 		def map_subexpressions(&block)
 			with(
-				var: var,
+				var:    var,
 				assign: block[assign],
-				type: type.nil? ? nil : block[type]
+				type:   type.nil? ? nil : block[type]
 			)
 		end
 	end
@@ -714,7 +720,7 @@ module Dhall
 		def map_subexpressions(&block)
 			with(
 				value: block[value],
-				type: block[type]
+				type:  block[type]
 			)
 		end
 	end

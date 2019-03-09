@@ -9,9 +9,11 @@ require "dhall/normalize"
 
 DIRPATH = Pathname.new(File.dirname(__FILE__))
 UNIT = DIRPATH + "normalization/beta/"
-STANDARD = DIRPATH + 'normalization/standard/'
+STANDARD = DIRPATH + "normalization/standard/"
 
-class TestParser < Minitest::Test
+# Tests are not the place for abstractions, but for concretions
+# rubocop:disable Metrics/MethodLength
+class TestNormalization < Minitest::Test
 	Pathname.glob(UNIT + "*A.dhallb").each do |path|
 		test = path.basename("A.dhallb").to_s
 		define_method("test_#{test}") do
@@ -23,12 +25,13 @@ class TestParser < Minitest::Test
 	end
 
 	Pathname.glob(STANDARD + "**/*A.dhallb").each do |path|
-		test = path.relative_path_from(STANDARD).to_s.sub(/A\.dhallb$/, '')
+		test = path.relative_path_from(STANDARD).to_s.sub(/A\.dhallb$/, "")
 		next if test =~ /prelude\//
 		next if test =~ /remoteSystems/
 		next if test =~ /constructorsId$/
 		next if test =~ /multiline\//
-		define_method("test_#{test.gsub(/\//, '_')}") do
+
+		define_method("test_#{test.gsub(/\//, "_")}") do
 			assert_equal(
 				Dhall.from_binary(STANDARD + "#{test}B.dhallb"),
 				Dhall.from_binary(path.read).normalize
@@ -65,29 +68,24 @@ class TestParser < Minitest::Test
 	end
 
 	def test_shift_closed
-		assert_equal(
-			Dhall::Function.new(
-				var: "x",
-				type: Dhall::Variable.new(name: "Type"),
-				body: Dhall::Variable.new(name: "x", index: 0)
-			),
-			Dhall::Function.new(
-				var: "x",
-				type: Dhall::Variable.new(name: "Type"),
-				body: Dhall::Variable.new(name: "x", index: 0)
-			).shift(1, "x", 0)
+		expr = Dhall::Function.new(
+			var:  "x",
+			type: Dhall::Variable.new(name: "Type"),
+			body: Dhall::Variable.new(name: "x", index: 0)
 		)
+
+		assert_equal(expr, expr.shift(1, "x", 0))
 	end
 
 	def test_shift_free
 		assert_equal(
 			Dhall::Function.new(
-				var: "y",
+				var:  "y",
 				type: Dhall::Variable.new(name: "Type"),
 				body: Dhall::Variable.new(name: "x", index: 1)
 			),
 			Dhall::Function.new(
-				var: "y",
+				var:  "y",
 				type: Dhall::Variable.new(name: "Type"),
 				body: Dhall::Variable.new(name: "x", index: 0)
 			).shift(1, "x", 0)
@@ -124,3 +122,4 @@ class TestParser < Minitest::Test
 		)
 	end
 end
+# rubocop:enable Metrics/MethodLength

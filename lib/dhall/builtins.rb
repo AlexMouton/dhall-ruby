@@ -176,16 +176,16 @@ module Dhall
 				else
 					arg.call(
 						Application.new(
-							function: Variable.new(name: "List"),
+							function:  Variable.new(name: "List"),
 							arguments: [@type]
 						),
 						Function.new(
-							var: "_",
+							var:  "_",
 							type: @type,
 							body: Function.new(
 								var:  "_",
 								type: Application.new(
-									function: Variable.new(name: "List"),
+									function:  Variable.new(name: "List"),
 									arguments: [@type.shift(1, "_", 0)]
 								),
 								body: Operator::ListConcatenate.new(
@@ -194,7 +194,7 @@ module Dhall
 									),
 									rhs: Variable.new(name: "_")
 								)
-							),
+							)
 						),
 						EmptyList.new(type: @type)
 					)
@@ -306,22 +306,21 @@ module Dhall
 				else
 					arg.call(
 						Application.new(
-							function: Variable.new(name: "Optional"),
+							function:  Variable.new(name: "Optional"),
 							arguments: [@type]
 						),
 						Function.new(
-							var: "_",
+							var:  "_",
 							type: @type,
 							body: Optional.new(
 								value: Variable.new(name: "_"),
-								type: @type
+								type:  @type
 							)
 						),
 						OptionalNone.new(type: @type)
 					)
 				end
 			end
-
 		end
 
 		class Optional_fold < Builtin
@@ -373,6 +372,8 @@ module Dhall
 				end
 			end
 		end
+
+		# rubocop:enable Style/ClassAndModuleCamelCase
 
 		ALL = Hash[constants.map { |c| [c.to_s.tr("_", "/"), const_get(c)] }]
 	end

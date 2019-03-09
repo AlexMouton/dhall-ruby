@@ -4,4 +4,3 @@ source "https://rubygems.org"
 
 gem "cbor"
 gem "value_semantics"
-gem "rubocop"

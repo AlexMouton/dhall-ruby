@@ -189,7 +189,7 @@ module Dhall
 		].freeze
 
 		def self.decode(integrity_check, import_type, path_type, *parts)
-			parts[0] = Dhall.decode(parts[0]) if path_type
+			parts[0] = Dhall.decode(parts[0]) if path_type && !parts[0].nil?
 			new(
 				integrity_check.nil? ? nil : IntegrityCheck.new(*integrity_check),
 				IMPORT_TYPES[import_type],

@@ -7,7 +7,7 @@ require "dhall/ast"
 require "dhall/binary"
 
 DIRPATH = Pathname.new(File.dirname(__FILE__))
-TESTS = DIRPATH + "/../dhall-lang/tests/parser/success/"
+TESTS = DIRPATH + "../dhall-lang/tests/parser/success/"
 
 class TestParser < Minitest::Test
 	Pathname.glob(TESTS + "*B.dhallb").each do |path|

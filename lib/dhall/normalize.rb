@@ -45,6 +45,14 @@ module Dhall
 	end
 
 	class Function
+		def self.disable_alpha_normalization!
+			@@alpha_normalization = false
+		end
+
+		def self.enable_alpha_normalization!
+			@@alpha_normalization = true
+		end
+
 		def shift(amount, name, min_index)
 			return super unless var == name
 
@@ -56,12 +64,31 @@ module Dhall
 
 		def substitute(svar, with_expr)
 			with(
-				type: type.substitute(svar, with_expr),
+				type: type&.substitute(svar, with_expr),
 				body: body.substitute(
 					var == svar.name ? svar.with(index: svar.index + 1) : svar,
 					with_expr.shift(1, var, 0)
 				)
 			)
+		end
+
+		def normalize
+			return super unless alpha_normalize?
+			with(
+				var:  "_",
+				type: type&.normalize,
+				body: body
+				      .shift(1, "_", 0)
+				      .substitute(Variable[var], Variable["_"])
+				      .shift(-1, var, 0)
+				      .normalize
+			)
+		end
+
+		protected
+
+		def alpha_normalize?
+			var != "_" && @@alpha_normalization
 		end
 	end
 

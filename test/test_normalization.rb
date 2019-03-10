@@ -8,33 +8,24 @@ require "dhall/binary"
 require "dhall/normalize"
 
 DIRPATH = Pathname.new(File.dirname(__FILE__))
-UNIT = DIRPATH + "normalization/beta/"
-STANDARD = DIRPATH + "normalization/standard/"
+TESTS = DIRPATH + "normalization/"
 
 # Tests are not the place for abstractions, but for concretions
 # rubocop:disable Metrics/MethodLength
 class TestNormalization < Minitest::Test
-	Pathname.glob(UNIT + "*A.dhallb").each do |path|
-		test = path.basename("A.dhallb").to_s
-		define_method("test_#{test}") do
-			assert_equal(
-				Dhall.from_binary(UNIT + "#{test}B.dhallb"),
-				Dhall.from_binary(path.read).normalize
-			)
-		end
-	end
-
-	Pathname.glob(STANDARD + "**/*A.dhallb").each do |path|
-		test = path.relative_path_from(STANDARD).to_s.sub(/A\.dhallb$/, "")
+	Pathname.glob(TESTS + "**/*A.dhallb").each do |path|
+		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhallb$/, "")
 		next if test =~ /prelude\//
 		next if test =~ /remoteSystems/
 		next if test =~ /multiline\//
 
 		define_method("test_#{test.gsub(/\//, "_")}") do
+			Dhall::Function.disable_alpha_normalization! if test =~ /^standard\//
 			assert_equal(
-				Dhall.from_binary(STANDARD + "#{test}B.dhallb"),
+				Dhall.from_binary(TESTS + "#{test}B.dhallb"),
 				Dhall.from_binary(path.read).normalize
 			)
+			Dhall::Function.enable_alpha_normalization! if test =~ /^standard\//
 		end
 	end
 

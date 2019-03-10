@@ -187,9 +187,15 @@ module Dhall
 	end
 
 	class Optional
+		def normalize
+			with(value: value.normalize, type: nil)
+		end
 	end
 
 	class OptionalNone
+		def normalize
+			with(type: type.normalize)
+		end
 	end
 
 	class Merge

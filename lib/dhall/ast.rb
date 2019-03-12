@@ -323,8 +323,7 @@ module Dhall
 
 	class RecordType < Expression
 		include(ValueSemantics.for_attributes do
-			# The nil is not allowed in Dhall
-			record Util::HashOf.new(Either(nil, Expression), min: 1)
+			record Util::HashOf.new(Expression, min: 1)
 		end)
 
 		def deep_merge_type(other)

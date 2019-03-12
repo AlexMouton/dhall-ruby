@@ -220,28 +220,40 @@ module Dhall
 		end
 
 		class List_head < Builtin
+			include(ValueSemantics.for_attributes do
+				type Either(nil, Expression), default: nil
+			end)
+
 			def call(arg)
-				if arg.is_a?(List)
-					arg.first
-				else
-					super
+				fill_or_call(arg) do
+					if arg.is_a?(List)
+						arg.first
+					else
+						super
+					end
 				end
 			end
 		end
 
 		class List_indexed < Builtin
+			include(ValueSemantics.for_attributes do
+				type Either(nil, Expression), default: nil
+			end)
+
 			def call(arg)
-				if arg.is_a?(List)
-					_call(arg)
-				else
-					super
+				fill_or_call(arg) do
+					if arg.is_a?(List)
+						_call(arg)
+					else
+						super
+					end
 				end
 			end
 
 			protected
 
 			def _call(arg)
-				arg.map(type: indexed_type(arg.type)) do |x, idx|
+				arg.map(type: indexed_type(type)) do |x, idx|
 					Record.new(
 						record: {
 							"index" => Natural.new(value: idx),
@@ -262,31 +274,49 @@ module Dhall
 		end
 
 		class List_last < Builtin
+			include(ValueSemantics.for_attributes do
+				type Either(nil, Expression), default: nil
+			end)
+
 			def call(arg)
-				if arg.is_a?(List)
-					arg.last
-				else
-					super
+				fill_or_call(arg) do
+					if arg.is_a?(List)
+						arg.last
+					else
+						super
+					end
 				end
 			end
 		end
 
 		class List_length < Builtin
+			include(ValueSemantics.for_attributes do
+				type Either(nil, Expression), default: nil
+			end)
+
 			def call(arg)
-				if arg.is_a?(List)
-					Natural.new(value: arg.length)
-				else
-					super
+				fill_or_call(arg) do
+					if arg.is_a?(List)
+						Natural.new(value: arg.length)
+					else
+						super
+					end
 				end
 			end
 		end
 
 		class List_reverse < Builtin
+			include(ValueSemantics.for_attributes do
+				type Either(nil, Expression), default: nil
+			end)
+
 			def call(arg)
-				if arg.is_a?(List)
-					arg.reverse
-				else
-					super
+				fill_or_call(arg) do
+					if arg.is_a?(List)
+						arg.reverse
+					else
+						super
+					end
 				end
 			end
 		end

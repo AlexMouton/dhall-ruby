@@ -184,7 +184,13 @@ module Dhall
 
 		class ListConcatenate
 			def normalize
-				lhs.normalize.concat(rhs.normalize)
+				normalized = super
+				case normalized.rhs
+				when EmptyList
+					normalized.lhs
+				else
+					normalized.lhs.concat(normalized.rhs)
+				end
 			end
 		end
 
@@ -238,24 +244,6 @@ module Dhall
 		end
 	end
 
-	class RecordType
-		def normalize
-			self.class.new(Hash[record.sort.map { |(k, v)| [k, v.normalize] }])
-		end
-	end
-
-	class Record
-		def normalize
-			self.class.new(Hash[record.sort.map { |(k, v)| [k, v.normalize] }])
-		end
-	end
-
-	class EmptyRecord
-		def normalize
-			self
-		end
-	end
-
 	class RecordSelection
 		def normalize
 			record.normalize.fetch(selector)
@@ -276,7 +264,7 @@ module Dhall
 
 	class UnionType
 		def normalize
-			self.class.new(Hash[super.record.sort])
+			with(alternatives: Hash[super.alternatives.sort])
 		end
 	end
 

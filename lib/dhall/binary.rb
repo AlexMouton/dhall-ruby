@@ -105,7 +105,7 @@ module Dhall
 			if record.empty?
 				EmptyRecordType.new
 			else
-				new(Hash[record.map { |k, v| [k, Dhall.decode(v)] }])
+				new(record: Hash[record.map { |k, v| [k, Dhall.decode(v)] }])
 			end
 		end
 	end
@@ -115,7 +115,7 @@ module Dhall
 			if record.empty?
 				EmptyRecord.new
 			else
-				new(Hash[record.map { |k, v| [k, Dhall.decode(v)] }])
+				new(record: Hash[record.map { |k, v| [k, Dhall.decode(v)] }])
 			end
 		end
 	end
@@ -138,7 +138,7 @@ module Dhall
 
 	class UnionType
 		def self.decode(record)
-			new(Hash[record.map { |k, v| [k, Dhall.decode(v)] }])
+			new(alternatives: Hash[record.map { |k, v| [k, Dhall.decode(v)] }])
 		end
 	end
 

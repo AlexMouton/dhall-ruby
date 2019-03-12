@@ -13,5 +13,19 @@ module Dhall
 				super && other.length >= @min && other.length <= @max
 			end
 		end
+
+		class HashOf
+			def initialize(element_validator, min: 0, max: Float::INFINITY)
+				@min = min
+				@max = max
+				@element_validator = element_validator
+			end
+
+			def ===(other)
+				Hash === other &&
+					other.values.all? { |x| @element_validator === x } &&
+					other.size >= @min && other.size <= @max
+			end
+		end
 	end
 end

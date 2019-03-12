@@ -4,9 +4,7 @@ require "dhall/ast"
 
 module Dhall
 	class Builtin < Expression
-		def ==(other)
-			self.class == other.class
-		end
+		include(ValueSemantics.for_attributes {})
 
 		def call(*args)
 			# Do not auto-normalize builtins to avoid recursion loop
@@ -234,15 +232,32 @@ module Dhall
 		class List_indexed < Builtin
 			def call(arg)
 				if arg.is_a?(List)
-					arg.map(type: RecordType.new(
-						"index" => Variable.new(name: "Natural"),
-						"value" => arg.type
-					)) do |x, idx|
-						Record.new("index" => Natural.new(value: idx), "value" => x)
-					end
+					_call(arg)
 				else
 					super
 				end
+			end
+
+			protected
+
+			def _call(arg)
+				arg.map(type: indexed_type(arg.type)) do |x, idx|
+					Record.new(
+						record: {
+							"index" => Natural.new(value: idx),
+							"value" => x
+						}
+					)
+				end
+			end
+
+			def indexed_type(value_type)
+				RecordType.new(
+					record: {
+						"index" => Variable.new(name: "Natural"),
+						"value" => value_type
+					}
+				)
 			end
 		end
 

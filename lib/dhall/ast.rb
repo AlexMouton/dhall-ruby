@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
+require "uri"
 require "value_semantics"
 
 require "dhall/util"
 
 module Dhall
 	class Expression
-		def map_subexpressions(&_)
-			# For expressions with no subexpressions
-			self
+		def map_subexpressions(&block)
+			with(subexpression_map(&block))
 		end
 
 		def call(*args)
@@ -47,12 +47,7 @@ module Dhall
 		end
 
 		def concat(other)
-			case other
-			when EmptyList
-				self
-			else
-				Operator::ListConcatenate.new(lhs: self, rhs: other)
-			end
+			Operator::ListConcatenate.new(lhs: self, rhs: other)
 		end
 
 		def &(other)
@@ -111,6 +106,21 @@ module Dhall
 				Operator::RecursiveRecordTypeMerge.new(lhs: self, rhs: other)
 			end
 		end
+
+		protected
+
+		def subexpression_map(&block)
+			to_h.each_with_object({}) do |(attr, value), h|
+				case value
+				when Expression
+					h[attr] = block[value]
+				when Util::ArrayOf.new(Expression)
+					h[attr] = value.map(&block)
+				when Util::HashOf.new(Expression)
+					h[attr] = Hash[value.map { |k, v| [k, block[v]] }]
+				end
+			end
+		end
 	end
 
 	class Application < Expression
@@ -118,10 +128,6 @@ module Dhall
 			function Expression
 			arguments Util::ArrayOf.new(Expression, min: 1)
 		end)
-
-		def map_subexpressions(&block)
-			with(function: block[function], arguments: arguments.map(&block))
-		end
 	end
 
 	class Function < Expression
@@ -139,10 +145,6 @@ module Dhall
 					body: inner
 				)
 			end
-		end
-
-		def map_subexpressions(&block)
-			with(var: var, type: type.nil? ? nil : block[type], body: block[body])
 		end
 
 		def call(*args)
@@ -196,10 +198,6 @@ module Dhall
 			rhs Expression
 		end)
 
-		def map_subexpressions(&block)
-			with(lhs: block[@lhs], rhs: block[@rhs])
-		end
-
 		class Or < Operator; end
 		class And < Operator; end
 		class Equal < Operator; end
@@ -221,10 +219,6 @@ module Dhall
 
 		def self.of(*args)
 			List.new(elements: args)
-		end
-
-		def map_subexpressions(&block)
-			with(elements: elements.map(&block))
 		end
 
 		def type
@@ -269,10 +263,6 @@ module Dhall
 			type Expression
 		end)
 
-		def map_subexpressions(&block)
-			with(type: block[@type])
-		end
-
 		def map(type: nil)
 			type.nil? ? self : with(type: type)
 		end
@@ -308,10 +298,6 @@ module Dhall
 			type Either(nil, Expression), default: nil
 		end)
 
-		def map_subexpressions(&block)
-			with(value: block[value], type: type.nil? ? type : block[type])
-		end
-
 		def reduce(_, &block)
 			block[value]
 		end
@@ -321,10 +307,6 @@ module Dhall
 		include(ValueSemantics.for_attributes do
 			type Expression
 		end)
-
-		def map_subexpressions(&block)
-			with(type: block[@type])
-		end
 
 		def reduce(z)
 			z
@@ -337,33 +319,18 @@ module Dhall
 			input  Expression
 			type   Either(Expression, nil)
 		end)
-
-		def map_subexpressions(&block)
-			with(
-				record: block[record],
-				input:  block[input],
-				type:   type.nil? ? nil : block[type]
-			)
-		end
 	end
 
 	class RecordType < Expression
-		attr_reader :record
-
-		def initialize(record)
-			raise ArgumentError, "You meant EmptyRecordType?" if record.empty?
-
-			@record = record
-		end
-
-		def map_subexpressions(&block)
-			self.class.new(Hash[@record.map { |k, v| [k, block[v]] }])
-		end
+		include(ValueSemantics.for_attributes do
+			# The nil is not allowed in Dhall
+			record Util::HashOf.new(Either(nil, Expression), min: 1)
+		end)
 
 		def deep_merge_type(other)
 			return super unless other.is_a?(RecordType)
 
-			self.class.new(Hash[record.merge(other.record) { |_, v1, v2|
+			with(record: Hash[record.merge(other.record) { |_, v1, v2|
 				v1.deep_merge_type(v2)
 			}.sort])
 		end
@@ -380,27 +347,15 @@ module Dhall
 	class EmptyRecordType < Expression
 		include(ValueSemantics.for_attributes {})
 
-		def map_subexpressions
-			self
-		end
-
 		def deep_merge_type(other)
 			other
 		end
 	end
 
 	class Record < Expression
-		attr_reader :record
-
-		def initialize(record)
-			raise ArgumentError, "You meant EmptyRecord?" if record.empty?
-
-			@record = record
-		end
-
-		def map_subexpressions(&block)
-			self.class.new(Hash[@record.map { |k, v| [k, block[v]] }])
-		end
+		include(ValueSemantics.for_attributes do
+			record Util::HashOf.new(Expression, min: 1)
+		end)
 
 		def fetch(k, default=nil, &block)
 			record.fetch(k, *default, &block)
@@ -408,16 +363,16 @@ module Dhall
 
 		def slice(*keys)
 			if record.respond_to?(:slice)
-				self.class.new(record.slice(*keys))
+				with(record: record.slice(*keys))
 			else
-				self.class.new(record.select { |k, _| keys.include?(k) })
+				with(record: record.select { |k, _| keys.include?(k) })
 			end
 		end
 
 		def deep_merge(other)
 			return super unless other.is_a?(Record)
 
-			self.class.new(Hash[record.merge(other.record) { |_, v1, v2|
+			with(record: Hash[record.merge(other.record) { |_, v1, v2|
 				v1.deep_merge(v2)
 			}.sort])
 		end
@@ -425,7 +380,7 @@ module Dhall
 		def merge(other)
 			return super unless other.is_a?(Record)
 
-			self.class.new(Hash[record.merge(other.record).sort])
+			with(record: Hash[record.merge(other.record).sort])
 		end
 
 		def ==(other)
@@ -439,10 +394,6 @@ module Dhall
 
 	class EmptyRecord < Expression
 		include(ValueSemantics.for_attributes {})
-
-		def map_subexpressions
-			self
-		end
 
 		def fetch(k, default=nil, &block)
 			{}.fetch(k, *default, &block)
@@ -466,10 +417,6 @@ module Dhall
 			record Expression
 			selector ::String
 		end)
-
-		def map_subexpressions(&block)
-			with(record: block[record], selector: selector)
-		end
 	end
 
 	class RecordProjection < Expression
@@ -477,35 +424,21 @@ module Dhall
 			record Expression
 			selectors Util::ArrayOf.new(::String, min: 1)
 		end)
-
-		def map_subexpressions(&block)
-			with(record: block[record], selectors: selectors)
-		end
 	end
 
 	class EmptyRecordProjection < Expression
 		include(ValueSemantics.for_attributes do
 			record Expression
 		end)
-
-		def map_subexpressions(&block)
-			with(record: block[record])
-		end
 	end
 
 	class UnionType < Expression
-		attr_reader :record
-
-		def initialize(record)
-			@record = record
-		end
-
-		def map_subexpressions(&block)
-			self.class.new(Hash[@record.map { |k, v| [k, block[v]] }])
-		end
+		include(ValueSemantics.for_attributes do
+			alternatives Util::HashOf.new(Expression)
+		end)
 
 		def ==(other)
-			other.respond_to?(:record) && record.to_a == other.record.to_a
+			other.is_a?(UnionType) && alternatives.to_a == other.alternatives.to_a
 		end
 
 		def eql?(other)
@@ -513,13 +446,14 @@ module Dhall
 		end
 
 		def fetch(k)
+			remains = with(alternatives: alternatives.dup.tap { |r| r.delete(k) })
 			Function.new(
 				var:  k,
-				type: record.fetch(k),
+				type: alternatives.fetch(k),
 				body: Union.new(
 					tag:          k,
 					value:        Variable.new(name: k),
-					alternatives: self.class.new(record.dup.tap { |r| r.delete(k) })
+					alternatives: remains
 				)
 			)
 		end
@@ -531,14 +465,6 @@ module Dhall
 			value        Expression
 			alternatives UnionType
 		end)
-
-		def map_subexpressions(&block)
-			with(
-				tag:          tag,
-				value:        block[value],
-				alternatives: block[alternatives]
-			)
-		end
 	end
 
 	class If < Expression
@@ -547,14 +473,6 @@ module Dhall
 			self.then Expression
 			self.else Expression
 		end)
-
-		def map_subexpressions(&block)
-			with(
-				predicate: block[predicate],
-				then:      block[self.then],
-				else:      block[self.else]
-			)
-		end
 	end
 
 	class Number < Expression
@@ -641,10 +559,6 @@ module Dhall
 		include(ValueSemantics.for_attributes do
 			chunks ArrayOf(Expression)
 		end)
-
-		def map_subexpressions(&block)
-			with(chunks: chunks.map(&block))
-		end
 	end
 
 	class Import < Expression
@@ -694,20 +608,12 @@ module Dhall
 		end
 	end
 
-	class Let
+	class Let < Expression
 		include(ValueSemantics.for_attributes do
 			var    ::String
 			assign Expression
 			type   Either(nil, Expression)
 		end)
-
-		def map_subexpressions(&block)
-			with(
-				var:    var,
-				assign: block[assign],
-				type:   type.nil? ? nil : block[type]
-			)
-		end
 	end
 
 	class LetBlock < Expression
@@ -715,13 +621,6 @@ module Dhall
 			lets ArrayOf(Let)
 			body Expression
 		end)
-
-		def map_subexpressions(&block)
-			with(
-				body: block[body],
-				lets: lets.map { |let| let.map_subexpressions(&block) }
-			)
-		end
 	end
 
 	class TypeAnnotation < Expression
@@ -729,12 +628,5 @@ module Dhall
 			value Expression
 			type  Expression
 		end)
-
-		def map_subexpressions(&block)
-			with(
-				value: block[value],
-				type:  block[type]
-			)
-		end
 	end
 end

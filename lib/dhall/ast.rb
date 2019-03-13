@@ -550,36 +550,136 @@ module Dhall
 		end
 
 		class URI
+			include(ValueSemantics.for_attributes do
+				headers   Either(nil, Expression)
+				authority ::String
+				path      ArrayOf(::String)
+				query     Either(nil, ::String)
+				fragment  Either(nil, ::String)
+			end)
+
 			def initialize(headers, authority, *path, query, fragment)
-				@headers = headers
-				@authority = authority
-				@path = path
-				@query = query
-				@fragment = fragment
+				super(
+					headers:   headers,
+					authority: authority,
+					path:      path,
+					query:     query,
+					fragment:  fragment
+				)
+			end
+
+			def self.from_uri(uri)
+				(uri.scheme == "https" ? Https : Http).new(
+					nil,
+					"#{uri.host}:#{uri.port}",
+					uri.path.split(/\//)[1..-1],
+					uri.query,
+					nil
+				)
+			end
+
+			def uri
+				URI("#{scheme}://#{authority}/#{path.join("/")}?#{query}")
 			end
 		end
 
-		class Http < URI; end
-		class Https < URI; end
+		class Http < URI
+			def resolve(resolver)
+				resolver.resolve_http(self)
+			end
+
+			def scheme
+				"http"
+			end
+		end
+
+		class Https < URI
+			def resolve(resolver)
+				resolver.resolve_https(self)
+			end
+
+			def scheme
+				"https"
+			end
+		end
 
 		class Path
+			include(ValueSemantics.for_attributes do
+				path ArrayOf(::String)
+			end)
+
 			def initialize(*path)
-				@path = path
+				super(path: path)
+			end
+
+			def self.from_string(s)
+				parts = s.split(/\//)
+				if parts.first == ""
+					AbsolutePath.new(*parts[1..-1])
+				elsif parts.first == "~"
+					RelativeToHomePath.new(*parts[1..-1])
+				else
+					RelativePath.new(*parts)
+				end
+			end
+
+			def resolve(resolver)
+				resolver.resolve_path(self)
+			end
+
+			def to_s
+				pathname.to_s
 			end
 		end
 
-		class AbsolutePath < Path; end
-		class RelativePath < Path; end
-		class RelativeToParentPath < Path; end
-		class RelativeToHomePath < Path; end
+		class AbsolutePath < Path
+			def pathname
+				Pathname.new("/").join(*path)
+			end
+		end
+
+		class RelativePath < Path
+			def pathname
+				Pathname.new(".").join(*path)
+			end
+		end
+
+		class RelativeToParentPath < Path
+			def pathname
+				Pathname.new("..").join(*path)
+			end
+		end
+
+		class RelativeToHomePath < Path
+			def pathname
+				Pathname.new("~").join(*@path)
+			end
+		end
 
 		class EnvironmentVariable
 			def initialize(var)
 				@var = var
 			end
+
+			def value
+				ENV.fetch(@var)
+			end
+
+			def resolve(resolver)
+				val = ENV.fetch(@var)
+				if val =~ /\Ahttps?:\/\//
+					URI.from_uri(URI(value))
+				else
+					Path.from_string(val)
+				end.resolve(resolver)
+			end
 		end
 
-		class MissingImport; end
+		class MissingImport
+			def resolve(*)
+				Promise.new.reject(ImportFailedException.new("missing"))
+			end
+		end
 
 		class IntegrityCheck
 			def initialize(protocol, data)

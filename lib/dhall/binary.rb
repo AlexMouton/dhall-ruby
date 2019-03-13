@@ -176,7 +176,11 @@ module Dhall
 	end
 
 	class Import
-		IMPORT_TYPES = [Expression, Text].freeze
+		IMPORT_TYPES = [
+			Dhall.method(:from_binary),
+			->(x) { Text.new(value: x) }
+		].freeze
+
 		PATH_TYPES = [
 			Http, Https,
 			AbsolutePath, RelativePath, RelativeToParentPath, RelativeToHomePath,
@@ -184,7 +188,8 @@ module Dhall
 		].freeze
 
 		def self.decode(integrity_check, import_type, path_type, *parts)
-			parts[0] = Dhall.decode(parts[0]) if path_type && !parts[0].nil?
+			parts[0] = Dhall.decode(parts[0]) if path_type < 2 && !parts[0].nil?
+
 			new(
 				integrity_check.nil? ? nil : IntegrityCheck.new(*integrity_check),
 				IMPORT_TYPES[import_type],

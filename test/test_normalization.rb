@@ -10,8 +10,6 @@ require "dhall/normalize"
 DIRPATH = Pathname.new(File.dirname(__FILE__))
 TESTS = DIRPATH + "normalization/"
 
-# Tests are not the place for abstractions, but for concretions
-# rubocop:disable Metrics/MethodLength
 class TestNormalization < Minitest::Test
 	Pathname.glob(TESTS + "**/*A.dhallb").each do |path|
 		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhallb$/, "")
@@ -112,4 +110,3 @@ class TestNormalization < Minitest::Test
 		)
 	end
 end
-# rubocop:enable Metrics/MethodLength

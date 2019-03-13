@@ -4,6 +4,14 @@ AllCops:
 Metrics/LineLength:
   Max: 80
 
+Metrics/MethodLength:
+  Exclude:
+    - test/*
+
+Metrics/ClassLength:
+  Exclude:
+    - test/*
+
 Layout/AlignHash:
   EnforcedHashRocketStyle: table
   EnforcedColonStyle: table

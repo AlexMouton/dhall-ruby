@@ -4,13 +4,10 @@ require "uri"
 require "value_semantics"
 
 require "dhall/util"
+require "dhall/visitor"
 
 module Dhall
 	class Expression
-		def map_subexpressions(&block)
-			with(subexpression_map(&block))
-		end
-
 		def call(*args)
 			args.reduce(self) { |f, arg|
 				Application.new(function: f, arguments: [arg])
@@ -104,21 +101,6 @@ module Dhall
 				other.deep_merge_type(self)
 			else
 				Operator::RecursiveRecordTypeMerge.new(lhs: self, rhs: other)
-			end
-		end
-
-		protected
-
-		def subexpression_map(&block)
-			to_h.each_with_object({}) do |(attr, value), h|
-				case value
-				when Expression
-					h[attr] = block[value]
-				when Util::ArrayOf.new(Expression)
-					h[attr] = value.map(&block)
-				when Util::HashOf.new(Expression)
-					h[attr] = Hash[value.map { |k, v| [k, block[v]] }]
-				end
 			end
 		end
 	end
@@ -323,7 +305,7 @@ module Dhall
 
 	class RecordType < Expression
 		include(ValueSemantics.for_attributes do
-			record Util::HashOf.new(Expression, min: 1)
+			record Util::HashOf.new(::String, Expression, min: 1)
 		end)
 
 		def deep_merge_type(other)
@@ -353,7 +335,7 @@ module Dhall
 
 	class Record < Expression
 		include(ValueSemantics.for_attributes do
-			record Util::HashOf.new(Expression, min: 1)
+			record Util::HashOf.new(::String, Expression, min: 1)
 		end)
 
 		def fetch(k, default=nil, &block)
@@ -433,7 +415,7 @@ module Dhall
 
 	class UnionType < Expression
 		include(ValueSemantics.for_attributes do
-			alternatives Util::HashOf.new(Expression)
+			alternatives Util::HashOf.new(::String, Expression)
 		end)
 
 		def ==(other)

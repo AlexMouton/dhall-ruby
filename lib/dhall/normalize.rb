@@ -1,19 +1,39 @@
 # frozen_string_literal: true
 
 require "dhall/builtins"
+require "dhall/visitor"
+require "dhall/util"
 
 module Dhall
+	module ExpressionVisitor
+		def self.new(&block)
+			Visitor.new(
+				Expression                                             => block,
+				Util::ArrayOf.new(Expression)                          => lambda do |x|
+					x.map(&block)
+				end,
+				Util::HashOf.new(ValueSemantics::Anything, Expression) => lambda do |x|
+					Hash[x.map { |k, v| [k, block[v]] }]
+				end
+			)
+		end
+	end
+
 	class Expression
 		def normalize
-			map_subexpressions(&:normalize)
+			with(ExpressionVisitor.new(&:normalize).visit(self))
 		end
 
 		def shift(amount, name, min_index)
-			map_subexpressions { |expr| expr.shift(amount, name, min_index) }
+			with(ExpressionVisitor.new { |expr|
+				expr.shift(amount, name, min_index)
+			}.visit(self))
 		end
 
 		def substitute(var, with_expr)
-			map_subexpressions { |expr| expr.substitute(var, with_expr) }
+			with(ExpressionVisitor.new { |expr|
+				expr.substitute(var, with_expr)
+			}.visit(self))
 		end
 
 		def fusion(*); end
@@ -45,6 +65,8 @@ module Dhall
 	end
 
 	class Function
+		@@alpha_normalization = true
+
 		def self.disable_alpha_normalization!
 			@@alpha_normalization = false
 		end

@@ -7,10 +7,10 @@ require "dhall/resolve"
 require "dhall/normalize"
 require "dhall/binary"
 
-DIRPATH = Pathname.new(File.dirname(__FILE__))
-TESTS = DIRPATH + "normalization/"
-
 class TestResolve < Minitest::Test
+	DIRPATH = Pathname.new(File.dirname(__FILE__))
+	TESTS = DIRPATH + "normalization/"
+
 	def setup
 		@resolver = Dhall::Resolvers::Default.new(
 			path_reader: lambda do |sources|

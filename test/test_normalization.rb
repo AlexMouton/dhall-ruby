@@ -7,10 +7,10 @@ require "dhall/ast"
 require "dhall/binary"
 require "dhall/normalize"
 
-DIRPATH = Pathname.new(File.dirname(__FILE__))
-TESTS = DIRPATH + "normalization/"
-
 class TestNormalization < Minitest::Test
+	DIRPATH = Pathname.new(File.dirname(__FILE__))
+	TESTS = DIRPATH + "normalization/"
+
 	Pathname.glob(TESTS + "**/*A.dhallb").each do |path|
 		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhallb$/, "")
 		next if test =~ /prelude\//

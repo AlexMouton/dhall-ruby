@@ -6,10 +6,10 @@ require "pathname"
 require "dhall/ast"
 require "dhall/binary"
 
-DIRPATH = Pathname.new(File.dirname(__FILE__))
-TESTS = DIRPATH + "../dhall-lang/tests/parser/success/"
-
 class TestParser < Minitest::Test
+	DIRPATH = Pathname.new(File.dirname(__FILE__))
+	TESTS = DIRPATH + "../dhall-lang/tests/parser/success/"
+
 	Pathname.glob(TESTS + "*B.dhallb").each do |path|
 		test = path.basename("B.dhallb").to_s
 		define_method("test_#{test}") do

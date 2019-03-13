@@ -21,7 +21,9 @@ module Dhall
 		ReadHttpSources = lambda do |sources|
 			sources.map do |source|
 				Promise.resolve(nil).then do
-					Net::HTTP.get(source.uri)
+					r = Net::HTTP.get_response(source.uri)
+					raise ImportFailedException, source if r.code != "200"
+					r.body
 				end
 			end
 		end
@@ -29,6 +31,50 @@ module Dhall
 		RejectSources = lambda do |sources|
 			sources.map do |source|
 				Promise.new.reject(ImportBannedException.new(source))
+			end
+		end
+
+		class ReadPathAndIPFSSources
+			def initialize(
+				path_reader: ReadPathSources,
+				http_reader: ReadHttpSources,
+				https_reader: http_reader,
+				public_gateway: "cloudflare-ipfs.com"
+			)
+				@path_reader = path_reader
+				@http_reader = http_reader
+				@https_reader = https_reader
+				@public_gateway = public_gateway
+			end
+
+			def call(sources)
+				@path_reader.call(sources).map.with_index do |promise, idx|
+					source = sources[idx]
+					if source.is_a?(Import::AbsolutePath) &&
+					   ["ipfs", "ipns"].include?(source.path.first)
+						gateway_fallback(source, promise)
+					else
+						promise
+					end
+				end
+			end
+
+			def to_proc
+				method(:call).to_proc
+			end
+
+			protected
+
+			def gateway_fallback(source, promise)
+				promise.catch {
+					@http_reader.call([
+						source.to_uri(Import::Http, "localhost:8000")
+					]).first
+				}.catch do
+					@https_reader.call([
+						source.to_uri(Import::Https, @public_gateway)
+					]).first
+				end
 			end
 		end
 
@@ -66,7 +112,7 @@ module Dhall
 			end
 		end
 
-		class Default
+		class Standard
 			def initialize(
 				path_reader: ReadPathSources,
 				http_reader: ReadHttpSources,
@@ -111,7 +157,27 @@ module Dhall
 			end
 		end
 
-		class LocalOnly < Default
+		class Default < Standard
+			def initialize(
+				path_reader: ReadPathSources,
+				http_reader: ReadHttpSources,
+				https_reader: http_reader,
+				ipfs_public_gateway: "cloudflare-ipfs.com"
+			)
+				super(
+					path_reader:  ReadPathAndIPFSSources.new(
+						path_reader:    path_reader,
+						http_reader:    http_reader,
+						https_reader:   https_reader,
+						public_gateway: ipfs_public_gateway
+					),
+					http_reader:  http_reader,
+					https_reader: https_reader
+				)
+			end
+		end
+
+		class LocalOnly < Standard
 			def initialize(path_reader: ReadPathSources)
 				super(
 					path_reader:  path_reader,

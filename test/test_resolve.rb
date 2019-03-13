@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "base64"
+require "webmock/minitest"
 require "minitest/autorun"
 
 require "dhall/resolve"
@@ -170,6 +171,35 @@ class TestResolve < Minitest::Test
 		)
 
 		assert_equal Dhall::Variable["_"], expr.resolve(@resolver).sync
+	end
+
+	def test_ipfs
+		stub_request(:get, "http://localhost:8000/ipfs/TESTCID")
+			.to_return(status: 200, body: "\x00")
+
+		expr = Dhall::Import.new(
+			nil,
+			Dhall.method(:from_binary),
+			Dhall::Import::AbsolutePath.new("ipfs", "TESTCID")
+		)
+
+		assert_equal Dhall::Variable["_"], expr.resolve.sync
+	end
+
+	def test_ipfs_public_gateway
+		stub_request(:get, "http://localhost:8000/ipfs/TESTCID")
+			.to_return(status: 500)
+
+		stub_request(:get, "https://cloudflare-ipfs.com/ipfs/TESTCID")
+			.to_return(status: 200, body: "\x00")
+
+		expr = Dhall::Import.new(
+			nil,
+			Dhall.method(:from_binary),
+			Dhall::Import::AbsolutePath.new("ipfs", "TESTCID")
+		)
+
+		assert_equal Dhall::Variable["_"], expr.resolve.sync
 	end
 
 	# Sanity check that all expressions can pass through the resolver

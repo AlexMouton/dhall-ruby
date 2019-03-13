@@ -572,7 +572,7 @@ module Dhall
 				(uri.scheme == "https" ? Https : Http).new(
 					nil,
 					"#{uri.host}:#{uri.port}",
-					uri.path.split(/\//)[1..-1],
+					*uri.path.split(/\//)[1..-1],
 					uri.query,
 					nil
 				)
@@ -635,6 +635,10 @@ module Dhall
 		class AbsolutePath < Path
 			def pathname
 				Pathname.new("/").join(*path)
+			end
+
+			def to_uri(scheme, authority)
+				scheme.new(nil, authority, *path, nil, nil)
 			end
 		end
 

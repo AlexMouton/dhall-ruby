@@ -21,7 +21,17 @@ module Dhall
 		ReadHttpSources = lambda do |sources|
 			sources.map do |source|
 				Promise.resolve(nil).then do
-					r = Net::HTTP.get_response(source.uri)
+					uri = source.uri
+					req = Net::HTTP::Get.new(uri)
+					source.headers.each do |header|
+						req[header.fetch("header").to_s] = header.fetch("value").to_s
+					end
+					r = Net::HTTP.start(
+						uri.hostname,
+						uri.port,
+						use_ssl: uri.scheme == "https"
+					) { |http| http.request(req) }
+
 					raise ImportFailedException, source if r.code != "200"
 					r.body
 				end
@@ -128,11 +138,21 @@ module Dhall
 			end
 
 			def resolve_http(http_source)
-				@http_resolutions.register(http_source)
+				ExpressionResolver.for(http_source.headers)
+					.resolve(self).then do |headers|
+					@http_resolutions.register(
+						http_source.with(headers: headers.normalize)
+					)
+				end
 			end
 
 			def resolve_https(https_source)
-				@https_resolutions.register(https_source)
+				ExpressionResolver.for(https_source.headers)
+					.resolve(self).then do |headers|
+					@https_resolutions.register(
+						https_source.with(headers: headers.normalize)
+					)
+				end
 			end
 
 			def finish!
@@ -265,7 +285,7 @@ module Dhall
 			register_for Object
 
 			def resolve(*)
-				@expr
+				Promise.resolve(@expr)
 			end
 		end
 	end

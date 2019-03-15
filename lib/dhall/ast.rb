@@ -261,6 +261,11 @@ module Dhall
 			with(elements: elements.each_with_index.map(&block))
 		end
 
+		def each(&block)
+			elements.each(&block)
+			self
+		end
+
 		def reduce(z)
 			elements.reverse.reduce(z) { |acc, x| yield x, acc }
 		end
@@ -301,6 +306,10 @@ module Dhall
 
 		def map(type: nil)
 			type.nil? ? self : with(type: type)
+		end
+
+		def each
+			self
 		end
 
 		def reduce(z)
@@ -678,6 +687,10 @@ module Dhall
 			end
 		end
 
+		def to_s
+			value
+		end
+
 		def as_json
 			[18, value]
 		end
@@ -720,6 +733,11 @@ module Dhall
 				fragment  Either(nil, ::String)
 			end)
 
+			HeaderType = RecordType.new(record: {
+				"header" => Variable["Text"],
+				"value"  => Variable["Text"]
+			})
+
 			def initialize(headers, authority, *path, query, fragment)
 				super(
 					headers:   headers,
@@ -727,6 +745,16 @@ module Dhall
 					path:      path,
 					query:     query,
 					fragment:  fragment
+				)
+			end
+
+			def with(hash)
+				self.class.new(
+					hash.fetch(:headers),
+					authority,
+					*path,
+					query,
+					fragment
 				)
 			end
 
@@ -740,12 +768,16 @@ module Dhall
 				)
 			end
 
+			def headers
+				super || EmptyList.new(type: HeaderType)
+			end
+
 			def uri
 				URI("#{scheme}://#{authority}/#{path.join("/")}?#{query}")
 			end
 
 			def as_json
-				[headers.as_json, authority, *path, query, fragment]
+				[@headers.as_json, authority, *path, query, fragment]
 			end
 		end
 

@@ -24,7 +24,9 @@ class TestResolve < Minitest::Test
 						"self"     => "hRgY9gADZHNlbGY",
 						"text"     => "aGFp",
 						"moretext" => "hRgY9gEDZHRleHQ",
-						"2text"    => "hAMGhRgY9gEDZHRleHSFGBj2AANobW9yZXRleHQ"
+						"2text"    => "hAMGhRgY9gEDZHRleHSFGBj2AANobW9yZXRleHQ",
+						"using"    => "iRgY9gAAhRgY9gADZ2hlYWRlcnNkZS50ZGF09vY",
+						"headers"  => "gwT2ggiiZmhlYWRlcoISYnRoZXZhbHVlghJidHY"
 					}.fetch(source.pathname.to_s)))
 				end
 			end
@@ -168,6 +170,20 @@ class TestResolve < Minitest::Test
 				Dhall::Import::Expression,
 				Dhall::Import::RelativePath.new("import")
 			)
+		)
+
+		assert_equal Dhall::Variable["_"], expr.resolve(@resolver).sync
+	end
+
+	def test_headers
+		stub_request(:get, "http://e.td/t")
+			.with(headers: { "Th" => "tv" })
+			.to_return(status: 200, body: "\x00")
+
+		expr = Dhall::Import.new(
+			nil,
+			Dhall::Import::Expression,
+			Dhall::Import::RelativePath.new("using")
 		)
 
 		assert_equal Dhall::Variable["_"], expr.resolve(@resolver).sync

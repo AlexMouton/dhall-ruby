@@ -13,6 +13,10 @@ module Dhall
 			end
 		end
 
+		def as_json
+			self.class.name.split(/::/).last.gsub(/_/, "/")
+		end
+
 		protected
 
 		def attributes

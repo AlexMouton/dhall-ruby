@@ -43,7 +43,7 @@ class TestResolve < Minitest::Test
 	def test_import_as_text
 		expr = Dhall::Import.new(
 			nil,
-			->(x) { Dhall::Text.new(value: x) },
+			Dhall::Import::Text,
 			Dhall::Import::RelativePath.new("text")
 		)
 
@@ -58,7 +58,7 @@ class TestResolve < Minitest::Test
 			Dhall::Variable["Natural"],
 			body: Dhall::Import.new(
 				nil,
-				Dhall.method(:from_binary),
+				Dhall::Import::Expression,
 				Dhall::Import::RelativePath.new("var")
 			)
 		)
@@ -74,7 +74,7 @@ class TestResolve < Minitest::Test
 			Dhall::Variable["Natural"],
 			body: Dhall::Import.new(
 				nil,
-				Dhall.method(:from_binary),
+				Dhall::Import::Expression,
 				Dhall::Import::RelativePath.new("import")
 			)
 		)
@@ -90,7 +90,7 @@ class TestResolve < Minitest::Test
 			Dhall::Variable["Natural"],
 			body: Dhall::Import.new(
 				nil,
-				Dhall.method(:from_binary),
+				Dhall::Import::Expression,
 				Dhall::Import::RelativePath.new("self")
 			)
 		)
@@ -105,7 +105,7 @@ class TestResolve < Minitest::Test
 			Dhall::Variable["Natural"],
 			body: Dhall::Import.new(
 				nil,
-				Dhall.method(:from_binary),
+				Dhall::Import::Expression,
 				Dhall::Import::RelativePath.new("a")
 			)
 		)
@@ -118,7 +118,7 @@ class TestResolve < Minitest::Test
 	def test_two_references_no_loop
 		expr = Dhall::Import.new(
 			nil,
-			Dhall.method(:from_binary),
+			Dhall::Import::Expression,
 			Dhall::Import::RelativePath.new("2text")
 		)
 
@@ -134,7 +134,7 @@ class TestResolve < Minitest::Test
 	def test_missing
 		expr = Dhall::Import.new(
 			nil,
-			Dhall.method(:from_binary),
+			Dhall::Import::Expression,
 			Dhall::Import::MissingImport.new
 		)
 
@@ -147,7 +147,7 @@ class TestResolve < Minitest::Test
 		expr = Dhall::Operator::ImportFallback.new(
 			lhs: Dhall::Import.new(
 				nil,
-				Dhall.method(:from_binary),
+				Dhall::Import::Expression,
 				Dhall::Import::MissingImport.new
 			),
 			rhs: Dhall::Variable["fallback"]
@@ -160,12 +160,12 @@ class TestResolve < Minitest::Test
 		expr = Dhall::Operator::ImportFallback.new(
 			lhs: Dhall::Import.new(
 				nil,
-				Dhall.method(:from_binary),
+				Dhall::Import::Expression,
 				Dhall::Import::MissingImport.new
 			),
 			rhs: Dhall::Import.new(
 				nil,
-				Dhall.method(:from_binary),
+				Dhall::Import::Expression,
 				Dhall::Import::RelativePath.new("import")
 			)
 		)
@@ -179,7 +179,7 @@ class TestResolve < Minitest::Test
 
 		expr = Dhall::Import.new(
 			nil,
-			Dhall.method(:from_binary),
+			Dhall::Import::Expression,
 			Dhall::Import::AbsolutePath.new("ipfs", "TESTCID")
 		)
 
@@ -195,7 +195,7 @@ class TestResolve < Minitest::Test
 
 		expr = Dhall::Import.new(
 			nil,
-			Dhall.method(:from_binary),
+			Dhall::Import::Expression,
 			Dhall::Import::AbsolutePath.new("ipfs", "TESTCID")
 		)
 
@@ -211,8 +211,8 @@ class TestResolve < Minitest::Test
 		define_method("test_#{test.gsub(/\//, "_")}") do
 			Dhall::Function.disable_alpha_normalization! if test =~ /^standard\//
 			assert_equal(
-				Dhall.from_binary(TESTS + "#{test}B.dhallb"),
-				Dhall.from_binary(path.read).resolve.sync.normalize
+				Dhall.from_binary((TESTS + "#{test}B.dhallb").binread),
+				Dhall.from_binary(path.binread).resolve.sync.normalize
 			)
 			Dhall::Function.enable_alpha_normalization! if test =~ /^standard\//
 		end

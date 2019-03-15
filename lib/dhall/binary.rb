@@ -24,6 +24,15 @@ module Dhall
 
 			new(*args)
 		end
+
+		def to_cbor(io=nil)
+			CBOR.encode(as_cbor, io)
+		end
+		alias to_binary to_cbor
+
+		def as_cbor
+			as_json
+		end
 	end
 
 	class Application
@@ -51,14 +60,6 @@ module Dhall
 	end
 
 	class Operator
-		OPERATORS = [
-			Or, And, Equal, NotEqual,
-			Plus, Times,
-			TextConcatenate, ListConcatenate,
-			RecursiveRecordMerge, RightBiasedRecordMerge, RecursiveRecordTypeMerge,
-			ImportFallback
-		].freeze
-
 		def self.decode(opcode, lhs, rhs)
 			OPERATORS[opcode].new(
 				lhs: Dhall.decode(lhs),
@@ -176,17 +177,6 @@ module Dhall
 	end
 
 	class Import
-		IMPORT_TYPES = [
-			Dhall.method(:from_binary),
-			->(x) { Text.new(value: x) }
-		].freeze
-
-		PATH_TYPES = [
-			Http, Https,
-			AbsolutePath, RelativePath, RelativeToParentPath, RelativeToHomePath,
-			EnvironmentVariable, MissingImport
-		].freeze
-
 		def self.decode(integrity_check, import_type, path_type, *parts)
 			parts[0] = Dhall.decode(parts[0]) if path_type < 2 && !parts[0].nil?
 

@@ -110,6 +110,10 @@ module Dhall
 			function Expression
 			arguments Util::ArrayOf.new(Expression, min: 1)
 		end)
+
+		def as_json
+			[0, function.as_json, *arguments.map(&:as_json)]
+		end
 	end
 
 	class Function < Expression
@@ -137,9 +141,25 @@ module Dhall
 				args.first.shift(1, var, 0)
 			).shift(-1, var, 0).normalize
 		end
+
+		def as_json
+			if var == "_"
+				[1, type.as_json, body.as_json]
+			else
+				[1, var, type.as_json, body.as_json]
+			end
+		end
 	end
 
-	class Forall < Function; end
+	class Forall < Function
+		def as_json
+			if var == "_"
+				[2, type.as_json, body.as_json]
+			else
+				[2, var, type.as_json, body.as_json]
+			end
+		end
+	end
 
 	class Bool < Expression
 		include(ValueSemantics.for_attributes do
@@ -161,6 +181,10 @@ module Dhall
 		def dhall_eq(other)
 			reduce(other, super)
 		end
+
+		def as_json
+			value
+		end
 	end
 
 	class Variable < Expression
@@ -172,6 +196,16 @@ module Dhall
 		def self.[](name, index=0)
 			new(name: name, index: index)
 		end
+
+		def as_json
+			if name == "_"
+				index
+			elsif index == 0
+				name
+			else
+				[name, index]
+			end
+		end
 	end
 
 	class Operator < Expression
@@ -179,6 +213,10 @@ module Dhall
 			lhs Expression
 			rhs Expression
 		end)
+
+		def as_json
+			[3, OPERATORS.index(self.class), lhs.as_json, rhs.as_json]
+		end
 
 		class Or < Operator; end
 		class And < Operator; end
@@ -192,6 +230,14 @@ module Dhall
 		class RightBiasedRecordMerge < Operator; end
 		class RecursiveRecordTypeMerge < Operator; end
 		class ImportFallback < Operator; end
+
+		OPERATORS = [
+			Or, And, Equal, NotEqual,
+			Plus, Times,
+			TextConcatenate, ListConcatenate,
+			RecursiveRecordMerge, RightBiasedRecordMerge, RecursiveRecordTypeMerge,
+			ImportFallback
+		].freeze
 	end
 
 	class List < Expression
@@ -201,6 +247,10 @@ module Dhall
 
 		def self.of(*args)
 			List.new(elements: args)
+		end
+
+		def as_json
+			[4, nil, *elements.map(&:as_json)]
 		end
 
 		def type
@@ -245,6 +295,10 @@ module Dhall
 			type Expression
 		end)
 
+		def as_json
+			[4, type.as_json]
+		end
+
 		def map(type: nil)
 			type.nil? ? self : with(type: type)
 		end
@@ -283,6 +337,10 @@ module Dhall
 		def reduce(_, &block)
 			block[value]
 		end
+
+		def as_json
+			[5, type&.as_json, value.as_json]
+		end
 	end
 
 	class OptionalNone < Optional
@@ -293,6 +351,10 @@ module Dhall
 		def reduce(z)
 			z
 		end
+
+		def as_json
+			[5, type.as_json]
+		end
 	end
 
 	class Merge < Expression
@@ -301,6 +363,11 @@ module Dhall
 			input  Expression
 			type   Either(Expression, nil)
 		end)
+
+		def as_json
+			[6, record.as_json, input.as_json] +
+				(type.nil? ? [] : [type.as_json])
+		end
 	end
 
 	class RecordType < Expression
@@ -323,6 +390,10 @@ module Dhall
 		def eql?(other)
 			self == other
 		end
+
+		def as_json
+			[7, Hash[record.to_a.map { |k, v| [k, v.as_json] }.sort]]
+		end
 	end
 
 	class EmptyRecordType < Expression
@@ -330,6 +401,10 @@ module Dhall
 
 		def deep_merge_type(other)
 			other
+		end
+
+		def as_json
+			[7, {}]
 		end
 	end
 
@@ -371,6 +446,10 @@ module Dhall
 		def eql?(other)
 			self == other
 		end
+
+		def as_json
+			[8, Hash[record.to_a.map { |k, v| [k, v.as_json] }.sort]]
+		end
 	end
 
 	class EmptyRecord < Expression
@@ -391,6 +470,10 @@ module Dhall
 		def merge(other)
 			other
 		end
+
+		def as_json
+			[8, {}]
+		end
 	end
 
 	class RecordSelection < Expression
@@ -398,6 +481,10 @@ module Dhall
 			record Expression
 			selector ::String
 		end)
+
+		def as_json
+			[9, record.as_json, selector]
+		end
 	end
 
 	class RecordProjection < Expression
@@ -405,12 +492,20 @@ module Dhall
 			record Expression
 			selectors Util::ArrayOf.new(::String, min: 1)
 		end)
+
+		def as_json
+			[10, record.as_json, *selectors]
+		end
 	end
 
 	class EmptyRecordProjection < Expression
 		include(ValueSemantics.for_attributes do
 			record Expression
 		end)
+
+		def as_json
+			[10, record.as_json]
+		end
 	end
 
 	class UnionType < Expression
@@ -438,6 +533,10 @@ module Dhall
 				)
 			)
 		end
+
+		def as_json
+			[11, Hash[alternatives.to_a.map { |k, v| [k, v.as_json] }.sort]]
+		end
 	end
 
 	class Union < Expression
@@ -446,6 +545,10 @@ module Dhall
 			value        Expression
 			alternatives UnionType
 		end)
+
+		def as_json
+			[12, tag, value.as_json, alternatives.as_json.last]
+		end
 	end
 
 	class If < Expression
@@ -454,6 +557,10 @@ module Dhall
 			self.then Expression
 			self.else Expression
 		end)
+
+		def as_json
+			[14, predicate.as_json, self.then.as_json, self.else.as_json]
+		end
 	end
 
 	class Number < Expression
@@ -500,6 +607,10 @@ module Dhall
 		def pred
 			with(value: [0, value - 1].max)
 		end
+
+		def as_json
+			[15, value]
+		end
 	end
 
 	class Integer < Number
@@ -510,6 +621,10 @@ module Dhall
 		def to_s
 			"#{value >= 0 ? "+" : ""}#{value}"
 		end
+
+		def as_json
+			[16, value]
+		end
 	end
 
 	class Double < Number
@@ -519,6 +634,34 @@ module Dhall
 
 		def to_s
 			value.to_s
+		end
+
+		def single?
+			[value].pack("g").unpack("g").first == value
+		end
+
+		def as_json
+			value
+		end
+
+		def as_cbor
+			self
+		end
+
+		def to_cbor(packer=nil)
+			if [0.0, Float::INFINITY, -Float::INFINITY].include?(value) ||
+			   value.nan?
+				return value.to_cbor(packer)
+			end
+
+			# Dhall spec requires *not* using half-precision CBOR floats
+			bytes = single? ? [0xFA, value].pack("Cg") : [0xFB, value].pack("CG")
+			if packer
+				packer.buffer.write(bytes)
+				packer
+			else
+				bytes
+			end
 		end
 	end
 
@@ -534,12 +677,21 @@ module Dhall
 				super
 			end
 		end
+
+		def as_json
+			[18, value]
+		end
 	end
 
 	class TextLiteral < Expression
 		include(ValueSemantics.for_attributes do
 			chunks ArrayOf(Expression)
 		end)
+
+		def as_json
+			raise "TextLiteral must start with a Text" unless chunks.first.is_a?(Text)
+			[18, *chunks.map { |chunk| chunk.is_a?(Text) ? chunk.value : chunk.as_json }]
+		end
 	end
 
 	class Import < Expression
@@ -547,6 +699,16 @@ module Dhall
 			@integrity_check = integrity_check
 			@import_type = import_type
 			@path = path
+		end
+
+		def as_json
+			[
+				24,
+				@integrity_check&.as_json,
+				IMPORT_TYPES.index(@import_type),
+				PATH_TYPES.index(@path.class),
+				*@path.as_json
+			]
 		end
 
 		class URI
@@ -580,6 +742,10 @@ module Dhall
 
 			def uri
 				URI("#{scheme}://#{authority}/#{path.join("/")}?#{query}")
+			end
+
+			def as_json
+				[headers.as_json, authority, *path, query, fragment]
 			end
 		end
 
@@ -630,6 +796,10 @@ module Dhall
 			def to_s
 				pathname.to_s
 			end
+
+			def as_json
+				path
+			end
 		end
 
 		class AbsolutePath < Path
@@ -677,11 +847,19 @@ module Dhall
 					Path.from_string(val)
 				end.resolve(resolver)
 			end
+
+			def as_json
+				var
+			end
 		end
 
 		class MissingImport
 			def resolve(*)
 				Promise.new.reject(ImportFailedException.new("missing"))
+			end
+
+			def as_json
+				[]
 			end
 		end
 
@@ -691,6 +869,29 @@ module Dhall
 				@data = data
 			end
 		end
+
+		class Expression
+			def self.call(import_value)
+				Dhall.from_binary(import_value)
+			end
+		end
+
+		class Text
+			def self.call(import_value)
+				Dhall::Text.new(value: import_value)
+			end
+		end
+
+		IMPORT_TYPES = [
+			Expression,
+			Text
+		].freeze
+
+		PATH_TYPES = [
+			Http, Https,
+			AbsolutePath, RelativePath, RelativeToParentPath, RelativeToHomePath,
+			EnvironmentVariable, MissingImport
+		].freeze
 	end
 
 	class Let < Expression
@@ -699,6 +900,10 @@ module Dhall
 			assign Expression
 			type   Either(nil, Expression)
 		end)
+
+		def as_json
+			[var, type&.as_json, assign.as_json]
+		end
 	end
 
 	class LetBlock < Expression
@@ -706,6 +911,10 @@ module Dhall
 			lets ArrayOf(Let)
 			body Expression
 		end)
+
+		def as_json
+			[25, *lets.flat_map(&:as_json), body.as_json]
+		end
 	end
 
 	class TypeAnnotation < Expression
@@ -713,5 +922,9 @@ module Dhall
 			value Expression
 			type  Expression
 		end)
+
+		def as_json
+			[26, value.as_json, type.as_json]
+		end
 	end
 end

@@ -2,11 +2,12 @@
 
 require "minitest/autorun"
 require "pathname"
+require "cbor"
 
 require "dhall/ast"
 require "dhall/binary"
 
-class TestBinary < Minitest::Test
+class TestAsJson < Minitest::Test
 	DIRPATH = Pathname.new(File.dirname(__FILE__))
 	TESTS = DIRPATH + "normalization/"
 
@@ -14,8 +15,8 @@ class TestBinary < Minitest::Test
 		test = path.relative_path_from(TESTS).to_s.sub(/.dhallb$/, "")
 		define_method("test_#{test}") do
 			assert_equal(
-				path.binread,
-				Dhall.from_binary(path.binread).to_binary
+				CBOR.decode(path.read).inspect,
+				Dhall.from_binary(path.read).as_json.inspect
 			)
 		end
 	end

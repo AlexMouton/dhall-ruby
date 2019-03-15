@@ -20,8 +20,8 @@ class TestNormalization < Minitest::Test
 		define_method("test_#{test.gsub(/\//, "_")}") do
 			Dhall::Function.disable_alpha_normalization! if test =~ /^standard\//
 			assert_equal(
-				Dhall.from_binary(TESTS + "#{test}B.dhallb"),
-				Dhall.from_binary(path.read).normalize
+				Dhall.from_binary((TESTS + "#{test}B.dhallb").binread),
+				Dhall.from_binary(path.binread).normalize
 			)
 			Dhall::Function.enable_alpha_normalization! if test =~ /^standard\//
 		end

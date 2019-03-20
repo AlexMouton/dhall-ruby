@@ -37,10 +37,9 @@ module Dhall
 
 	class Application
 		def self.decode(f, *args)
-			new(
-				function:  Dhall.decode(f),
-				arguments: args.map(&Dhall.method(:decode))
-			)
+			args.map(&Dhall.method(:decode)).reduce(Dhall.decode(f)) { |f, arg|
+				new(function: f, argument: arg)
+			}
 		end
 	end
 

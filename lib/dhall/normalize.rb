@@ -48,7 +48,7 @@ module Dhall
 
 			if normalized.function.is_a?(Builtin) ||
 			   normalized.function.is_a?(Function)
-				return normalized.function.call(*normalized.arguments)
+				return normalized.function.call(normalized.argument)
 			end
 
 			normalized
@@ -56,11 +56,11 @@ module Dhall
 
 		def fuse
 			if function.is_a?(Application)
-				@fuse ||= function.function.fusion(*function.arguments, *arguments)
+				@fuse ||= function.function.fusion(function.argument, argument)
 				return @fuse if @fuse
 			end
 
-			@fuse ||= function.fusion(*arguments)
+			@fuse ||= function.fusion(argument)
 		end
 	end
 

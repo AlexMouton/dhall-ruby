@@ -10,7 +10,7 @@ module Dhall
 	class Expression
 		def call(*args)
 			args.reduce(self) { |f, arg|
-				Application.new(function: f, arguments: [arg])
+				Application.new(function: f, argument: arg)
 			}.normalize
 		end
 
@@ -108,11 +108,11 @@ module Dhall
 	class Application < Expression
 		include(ValueSemantics.for_attributes do
 			function Expression
-			arguments Util::ArrayOf.new(Expression, min: 1)
+			argument Expression
 		end)
 
 		def as_json
-			[0, function.as_json, *arguments.map(&:as_json)]
+			[0, function.as_json, argument.as_json]
 		end
 	end
 
@@ -1018,12 +1018,12 @@ module Dhall
 		def desugar
 			lets.reverse.reduce(body) do |inside, let|
 				Application.new(
-					function:  Function.new(
+					function: Function.new(
 						var:  let.var,
 						type: let.type,
 						body: inside
 					),
-					arguments: [let.assign]
+					argument: let.assign
 				)
 			end
 		end

@@ -9,7 +9,7 @@ module Dhall
 		def call(*args)
 			# Do not auto-normalize builtins to avoid recursion loop
 			args.reduce(self) do |f, arg|
-				Application.new(function: f, arguments: [arg])
+				Application.new(function: f, argument: arg)
 			end
 		end
 
@@ -82,9 +82,8 @@ module Dhall
 			def fusion(arg, *bogus)
 				if bogus.empty? &&
 				   arg.is_a?(Application) &&
-				   arg.function == Natural_fold.new &&
-				   arg.arguments.length == 1
-					arg.arguments.first
+				   arg.function == Natural_fold.new
+					arg.argument
 				else
 					super
 				end
@@ -179,9 +178,8 @@ module Dhall
 				_, arg, = args
 				if arg.is_a?(Application) &&
 				   arg.function.is_a?(Application) &&
-				   arg.function.function == List_fold.new &&
-				   arg.arguments.length == 1
-					arg.arguments.first
+				   arg.function.function == List_fold.new
+					arg.argument
 				else
 					super
 				end
@@ -334,9 +332,8 @@ module Dhall
 				_, arg, = args
 				if arg.is_a?(Application) &&
 				   arg.function.is_a?(Application) &&
-				   arg.function.function == Optional_fold.new &&
-				   arg.arguments.length == 1
-					arg.arguments.first
+				   arg.function.function == Optional_fold.new
+					arg.argument
 				else
 					super
 				end
@@ -373,8 +370,12 @@ module Dhall
 				f        Either(nil, Expression), default: nil
 			end)
 
-			def call(arg)
-				fill_or_call(arg) { @optional.reduce(arg, &f) } || super
+			def call(*args)
+				args.reduce(self) do |fold, arg|
+					fold.fill_or_call(arg) {
+						fold.optional.reduce(arg, &fold.f)
+					} || super
+				end
 			end
 		end
 

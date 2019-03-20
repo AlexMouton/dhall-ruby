@@ -129,8 +129,8 @@ module Dhall
 					var:  "A",
 					type: Dhall::Variable["Type"],
 					body: Dhall::Application.new(
-						function:  Dhall::Variable["Optional"],
-						arguments: [Dhall::Variable["A"]]
+						function: Dhall::Variable["Optional"],
+						argument: Dhall::Variable["A"]
 					)
 				)
 			}.freeze
@@ -391,8 +391,8 @@ module Dhall
 				Dhall::TypeAnnotation.new(
 					value: @expr,
 					type:  Dhall::Application.new(
-						function:  Dhall::Variable["List"],
-						arguments: [@expr.type]
+						function: Dhall::Variable["List"],
+						argument: @expr.type
 					)
 				)
 			end
@@ -421,8 +421,8 @@ module Dhall
 				Dhall::TypeAnnotation.new(
 					value: list,
 					type:  Dhall::Application.new(
-						function:  Dhall::Variable["List"],
-						arguments: [list.type]
+						function: Dhall::Variable["List"],
+						argument: list.type
 					)
 				)
 			end
@@ -442,8 +442,8 @@ module Dhall
 				Dhall::TypeAnnotation.new(
 					value: @expr,
 					type:  Dhall::Application.new(
-						function:  Dhall::Variable["Optional"],
-						arguments: [@expr.type]
+						function: Dhall::Variable["Optional"],
+						argument: @expr.type
 					)
 				)
 			end
@@ -468,8 +468,8 @@ module Dhall
 				Dhall::TypeAnnotation.new(
 					value: some,
 					type:  Dhall::Application.new(
-						function:  Dhall::Variable["Optional"],
-						arguments: [some.type]
+						function: Dhall::Variable["Optional"],
+						argument: some.type
 					)
 				)
 			end
@@ -762,7 +762,7 @@ module Dhall
 			def initialize(app)
 				@app = app
 				@func = TypeChecker.for(app.function)
-				@arg = TypeChecker.for(app.arguments.first)
+				@arg = TypeChecker.for(app.argument)
 			end
 
 			def annotate(context)
@@ -784,7 +784,7 @@ module Dhall
 				).shift(-1, afunc.type.var, 0)
 
 				Dhall::TypeAnnotation.new(
-					value: @app.with(function: afunc, arguments: [aarg]),
+					value: @app.with(function: afunc, argument: aarg),
 					type: type
 				)
 			end
@@ -936,8 +936,8 @@ module Dhall
 							)
 						),
 						body: Dhall::Application.new(
-							function:  Dhall::Variable["List"],
-							arguments: [Dhall::Variable["a"]]
+							function: Dhall::Variable["List"],
+							argument: Dhall::Variable["a"]
 						)
 					)
 				),
@@ -946,8 +946,8 @@ module Dhall
 					type: Dhall::Variable["Type"],
 					body: Dhall::Forall.of_arguments(
 						Dhall::Application.new(
-							function:  Dhall::Variable["List"],
-							arguments: [Dhall::Variable["a"]]
+							function: Dhall::Variable["List"],
+							argument: Dhall::Variable["a"]
 						),
 						body: Dhall::Forall.new(
 							var:  "list",
@@ -973,8 +973,8 @@ module Dhall
 					type: Dhall::Variable["Type"],
 					body: Dhall::Forall.of_arguments(
 						Dhall::Application.new(
-							function:  Dhall::Variable["List"],
-							arguments: [Dhall::Variable["a"]]
+							function: Dhall::Variable["List"],
+							argument: Dhall::Variable["a"]
 						),
 						body: Dhall::Variable["Natural"]
 					)
@@ -984,12 +984,12 @@ module Dhall
 					type: Dhall::Variable["Type"],
 					body: Dhall::Forall.of_arguments(
 						Dhall::Application.new(
-							function:  Dhall::Variable["List"],
-							arguments: [Dhall::Variable["a"]]
+							function: Dhall::Variable["List"],
+							argument: Dhall::Variable["a"]
 						),
 						body: Dhall::Application.new(
-							function:  Dhall::Variable["Optional"],
-							arguments: [Dhall::Variable["a"]]
+							function: Dhall::Variable["Optional"],
+							argument: Dhall::Variable["a"]
 						)
 					)
 				),
@@ -998,12 +998,12 @@ module Dhall
 					type: Dhall::Variable["Type"],
 					body: Dhall::Forall.of_arguments(
 						Dhall::Application.new(
-							function:  Dhall::Variable["List"],
-							arguments: [Dhall::Variable["a"]]
+							function: Dhall::Variable["List"],
+							argument: Dhall::Variable["a"]
 						),
 						body: Dhall::Application.new(
-							function:  Dhall::Variable["Optional"],
-							arguments: [Dhall::Variable["a"]]
+							function: Dhall::Variable["Optional"],
+							argument: Dhall::Variable["a"]
 						)
 					)
 				),
@@ -1012,15 +1012,15 @@ module Dhall
 					type: Dhall::Variable["Type"],
 					body: Dhall::Forall.of_arguments(
 						Dhall::Application.new(
-							function:  Dhall::Variable["List"],
-							arguments: [Dhall::Variable["a"]]
+							function: Dhall::Variable["List"],
+							argument: Dhall::Variable["a"]
 						),
 						body: Dhall::Application.new(
-							function:  Dhall::Variable["List"],
-							arguments: [Dhall::RecordType.new(record: {
+							function: Dhall::Variable["List"],
+							argument: Dhall::RecordType.new(record: {
 								"index" => Dhall::Variable["Natural"],
 								"value" => Dhall::Variable["a"]
-							})]
+							})
 						)
 					)
 				),
@@ -1029,12 +1029,12 @@ module Dhall
 					type: Dhall::Variable["Type"],
 					body: Dhall::Forall.of_arguments(
 						Dhall::Application.new(
-							function:  Dhall::Variable["List"],
-							arguments: [Dhall::Variable["a"]]
+							function: Dhall::Variable["List"],
+							argument: Dhall::Variable["a"]
 						),
 						body: Dhall::Application.new(
-							function:  Dhall::Variable["List"],
-							arguments: [Dhall::Variable["a"]]
+							function: Dhall::Variable["List"],
+							argument: Dhall::Variable["a"]
 						)
 					)
 				),
@@ -1043,8 +1043,8 @@ module Dhall
 					type: Dhall::Variable["Type"],
 					body: Dhall::Forall.of_arguments(
 						Dhall::Application.new(
-							function:  Dhall::Variable["Optional"],
-							arguments: [Dhall::Variable["a"]]
+							function: Dhall::Variable["Optional"],
+							argument: Dhall::Variable["a"]
 						),
 						body: Dhall::Forall.new(
 							var:  "optional",
@@ -1085,8 +1085,8 @@ module Dhall
 							)
 						),
 						body: Dhall::Application.new(
-							function:  Dhall::Variable["Optional"],
-							arguments: [Dhall::Variable["a"]]
+							function: Dhall::Variable["Optional"],
+							argument: Dhall::Variable["a"]
 						)
 					)
 				),

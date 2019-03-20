@@ -111,8 +111,21 @@ module Dhall
 			argument Expression
 		end)
 
+		def flatten
+			f, args = if function.is_a?(Application)
+				function.flatten
+			elsif function.is_a?(Builtin) && (unfilled = function.unfill).is_a?(Application)
+				unfilled.flatten
+			else
+				[function, []]
+			end
+
+			[f, args + [argument]]
+		end
+
 		def as_json
-			[0, function.as_json, argument.as_json]
+			function, arguments = flatten
+			[0, function.as_json, *arguments.map(&:as_json)]
 		end
 	end
 

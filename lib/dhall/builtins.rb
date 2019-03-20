@@ -13,8 +13,22 @@ module Dhall
 			end
 		end
 
+		def unfill
+			attributes.reduce(self.class.new) do |f, attr|
+				if send(attr.name).nil?
+					f
+				else
+					Application.new(function: f, argument: send(attr.name))
+				end
+			end
+		end
+
 		def as_json
-			self.class.name.split(/::/).last.gsub(/_/, "/")
+			if (unfilled = unfill).class != self.class
+				unfilled.as_json
+			else
+				self.class.name.split(/::/).last.gsub(/_/, "/")
+			end
 		end
 
 		protected

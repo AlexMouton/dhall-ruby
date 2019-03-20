@@ -17,7 +17,7 @@ class TestNormalization < Minitest::Test
 		next if test =~ /remoteSystems/
 		next if test =~ /multiline\//
 
-		define_method("test_#{test.gsub(/\//, "_")}") do
+		define_method("test_#{test}") do
 			Dhall::Function.disable_alpha_normalization! if test =~ /^standard\//
 			assert_equal(
 				Dhall.from_binary((TESTS + "#{test}B.dhallb").binread),

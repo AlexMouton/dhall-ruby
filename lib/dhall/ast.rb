@@ -398,7 +398,7 @@ module Dhall
 		end
 
 		def as_json
-			[5, type.as_json]
+			[0, Variable["None"].as_json, type.as_json]
 		end
 	end
 

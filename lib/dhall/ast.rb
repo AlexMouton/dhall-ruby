@@ -179,7 +179,11 @@ module Dhall
 		end
 
 		def dhall_eq(other)
-			reduce(other, super)
+			if other.is_a?(Bool)
+				reduce(other, with(value: self == other))
+			else
+				reduce(other, super)
+			end
 		end
 
 		def as_json
@@ -195,6 +199,10 @@ module Dhall
 
 		def self.[](name, index=0)
 			new(name: name, index: index)
+		end
+
+		def to_s
+			"#{name}@#{index}"
 		end
 
 		def as_json
@@ -241,8 +249,11 @@ module Dhall
 	end
 
 	class List < Expression
+		include Enumerable
+
 		include(ValueSemantics.for_attributes do
-			elements ArrayOf(Expression)
+			elements Util::ArrayOf.new(Expression, min: 1)
+			type     Either(nil, Expression), default: nil
 		end)
 
 		def self.of(*args)
@@ -253,12 +264,8 @@ module Dhall
 			[4, nil, *elements.map(&:as_json)]
 		end
 
-		def type
-			# TODO: inferred element type
-		end
-
 		def map(type: nil, &block)
-			with(elements: elements.each_with_index.map(&block))
+			with(elements: elements.each_with_index.map(&block), type: type)
 		end
 
 		def each(&block)
@@ -275,11 +282,11 @@ module Dhall
 		end
 
 		def first
-			Optional.new(value: elements.first, type: type)
+			Optional.for(elements.first, type: type)
 		end
 
 		def last
-			Optional.new(value: elements.last, type: type)
+			Optional.for(elements.last, type: type)
 		end
 
 		def reverse
@@ -297,7 +304,7 @@ module Dhall
 
 	class EmptyList < List
 		include(ValueSemantics.for_attributes do
-			type Expression
+			type Either(nil, Expression)
 		end)
 
 		def as_json
@@ -343,6 +350,18 @@ module Dhall
 			type Either(nil, Expression), default: nil
 		end)
 
+		def self.for(value, type: nil)
+			if value.nil?
+				OptionalNone.new(type: type)
+			else
+				Optional.new(value: value, type: type)
+			end
+		end
+
+		def map(type: nil, &block)
+			with(value: block[value], type: type)
+		end
+
 		def reduce(_, &block)
 			block[value]
 		end
@@ -356,6 +375,10 @@ module Dhall
 		include(ValueSemantics.for_attributes do
 			type Expression
 		end)
+
+		def map(type: nil)
+			type.nil? ? self : with(type: type)
+		end
 
 		def reduce(z)
 			z
@@ -384,8 +407,22 @@ module Dhall
 			record Util::HashOf.new(::String, Expression, min: 1)
 		end)
 
+		def self.for(types)
+			if types.empty?
+				EmptyRecordType.new
+			else
+				RecordType.new(record: types)
+			end
+		end
+
+		def merge_type(other)
+			return self if other.is_a?(EmptyRecordType)
+
+			with(record: record.merge(other.record))
+		end
+
 		def deep_merge_type(other)
-			return super unless other.is_a?(RecordType)
+			return super unless other.class == RecordType
 
 			with(record: Hash[record.merge(other.record) { |_, v1, v2|
 				v1.deep_merge_type(v2)
@@ -405,8 +442,16 @@ module Dhall
 		end
 	end
 
-	class EmptyRecordType < Expression
+	class EmptyRecordType < RecordType
 		include(ValueSemantics.for_attributes {})
+
+		def record
+			{}
+		end
+
+		def merge_type(other)
+			other
+		end
 
 		def deep_merge_type(other)
 			other
@@ -448,6 +493,10 @@ module Dhall
 			with(record: Hash[record.merge(other.record).sort])
 		end
 
+		def map(&block)
+			with(record: Hash[record.map(&block)])
+		end
+
 		def ==(other)
 			other.respond_to?(:record) && record.to_a == other.record.to_a
 		end
@@ -478,6 +527,10 @@ module Dhall
 
 		def merge(other)
 			other
+		end
+
+		def map
+			self
 		end
 
 		def as_json
@@ -512,6 +565,10 @@ module Dhall
 			record Expression
 		end)
 
+		def selectors
+			[]
+		end
+
 		def as_json
 			[10, record.as_json]
 		end
@@ -522,6 +579,10 @@ module Dhall
 			alternatives Util::HashOf.new(::String, Expression)
 		end)
 
+		def record
+			alternatives
+		end
+
 		def ==(other)
 			other.is_a?(UnionType) && alternatives.to_a == other.alternatives.to_a
 		end
@@ -530,7 +591,11 @@ module Dhall
 			self == other
 		end
 
-		def fetch(k)
+		def fetch(k, default=nil)
+			if (default || block_given?) && !alternatives.key?(k)
+				return (default || yield)
+			end
+
 			remains = with(alternatives: alternatives.dup.tap { |r| r.delete(k) })
 			Function.new(
 				var:  k,
@@ -540,7 +605,7 @@ module Dhall
 					value:        Variable.new(name: k),
 					alternatives: remains
 				)
-			)
+			).normalize
 		end
 
 		def as_json
@@ -943,6 +1008,25 @@ module Dhall
 			lets ArrayOf(Let)
 			body Expression
 		end)
+
+		def unflatten
+			lets.reverse.reduce(body) do |inside, let|
+				LetBlock.new(lets: [let], body: inside)
+			end
+		end
+
+		def desugar
+			lets.reverse.reduce(body) do |inside, let|
+				Application.new(
+					function:  Function.new(
+						var:  let.var,
+						type: let.type,
+						body: inside
+					),
+					arguments: [let.assign]
+				)
+			end
+		end
 
 		def as_json
 			[25, *lets.flat_map(&:as_json), body.as_json]

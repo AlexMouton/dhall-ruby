@@ -257,14 +257,14 @@ module Dhall
 			protected
 
 			def _call(arg)
-				arg.map(type: indexed_type(type)) do |x, idx|
+				arg.map(type: indexed_type(type)) { |x, idx|
 					Record.new(
 						record: {
 							"index" => Natural.new(value: idx),
 							"value" => x
 						}
 					)
-				end
+				}.normalize
 			end
 
 			def indexed_type(value_type)

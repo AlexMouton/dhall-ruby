@@ -1,0 +1,10 @@
+#!/bin/sh
+
+cp -r "$(git root)"/dhall-lang/tests/typecheck/success "$(git root)"/test/typechecker/success/standard
+cp -r "$(git root)"/dhall-lang/tests/typecheck/failure "$(git root)"/test/typechecker/failure/standard
+
+cd "$(git root)"/test/typechecker/success/standard
+find . -name '*.dhall' -exec "$(git root)"/test/normalization/dhall-encode '{}' \;
+
+cd "$(git root)"/test/typechecker/failure/standard
+find . -name '*.dhall' -exec "$(git root)"/test/normalization/dhall-encode '{}' \;

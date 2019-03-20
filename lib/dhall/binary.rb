@@ -70,10 +70,10 @@ module Dhall
 
 	class List
 		def self.decode(type, *els)
-			if type.nil?
-				List.new(elements: els.map(&Dhall.method(:decode)))
+			if els.empty?
+				EmptyList.new(type: type.nil? ? nil : Dhall.decode(type))
 			else
-				EmptyList.new(type: Dhall.decode(type))
+				List.new(elements: els.map(&Dhall.method(:decode)))
 			end
 		end
 	end

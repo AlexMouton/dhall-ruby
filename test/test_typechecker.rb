@@ -6,12 +6,13 @@ require "pathname"
 require "dhall/typecheck"
 require "dhall/binary"
 
-class TestNormalization < Minitest::Test
+class TestTypechecker < Minitest::Test
 	DIRPATH = Pathname.new(File.dirname(__FILE__))
 	TESTS = DIRPATH + "typechecker/"
 
 	Pathname.glob(TESTS + "success/**/*A.dhallb").each do |path|
 		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhallb$/, "")
+		next if test =~ /prelude/
 
 		define_method("test_#{test}") do
 			assert_equal(
@@ -31,7 +32,7 @@ class TestNormalization < Minitest::Test
 				expr = Dhall.from_binary(path.binread)
 				Dhall::TypeChecker.for(
 					expr
-				).annotate(Dhall::TypeChecker::Context.new).type
+				).annotate(Dhall::TypeChecker::Context.new)
 			end
 		end
 	end

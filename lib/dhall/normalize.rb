@@ -236,9 +236,15 @@ module Dhall
 	end
 
 	class List
+			def normalize
+				super.with(type: nil)
+			end
 	end
 
 	class EmptyList
+			def normalize
+				super.with(type: type.normalize)
+			end
 	end
 
 	class Optional
@@ -353,21 +359,14 @@ module Dhall
 			desugar.normalize
 		end
 
-		def desugar
-			lets.reverse.reduce(body) do |inside, let|
-				Application.new(
-					function:  Function.new(
-						var:  let.var,
-						type: let.type,
-						body: inside
-					),
-					arguments: [let.assign]
-				)
-			end
-		end
-
 		def shift(amount, name, min_index)
-			desugar.shift(amount, name, min_index)
+			return unflatten.shift(amount, name, min_index) if lets.length > 1
+			return super unless lets.first.var == name
+
+			with(
+				lets: [let.first.shift(amount, name, min_index)],
+				body: body.shift(amount, name, min_index + 1)
+			)
 		end
 	end
 

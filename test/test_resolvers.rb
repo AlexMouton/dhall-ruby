@@ -3,6 +3,7 @@
 require "minitest/autorun"
 
 require "dhall/resolve"
+require "dhall/normalize"
 
 class TestResolvers < Minitest::Test
 	def test_default_resolver_path

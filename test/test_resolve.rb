@@ -44,7 +44,7 @@ class TestResolve < Minitest::Test
 
 	def test_import_as_text
 		expr = Dhall::Import.new(
-			nil,
+			Dhall::Import::IntegrityCheck.new,
 			Dhall::Import::Text,
 			Dhall::Import::RelativePath.new("text")
 		)
@@ -59,7 +59,7 @@ class TestResolve < Minitest::Test
 		expr = Dhall::Function.of_arguments(
 			Dhall::Variable["Natural"],
 			body: Dhall::Import.new(
-				nil,
+				Dhall::Import::IntegrityCheck.new,
 				Dhall::Import::Expression,
 				Dhall::Import::RelativePath.new("var")
 			)
@@ -75,7 +75,7 @@ class TestResolve < Minitest::Test
 		expr = Dhall::Function.of_arguments(
 			Dhall::Variable["Natural"],
 			body: Dhall::Import.new(
-				nil,
+				Dhall::Import::IntegrityCheck.new,
 				Dhall::Import::Expression,
 				Dhall::Import::RelativePath.new("import")
 			)
@@ -91,7 +91,7 @@ class TestResolve < Minitest::Test
 		expr = Dhall::Function.of_arguments(
 			Dhall::Variable["Natural"],
 			body: Dhall::Import.new(
-				nil,
+				Dhall::Import::IntegrityCheck.new,
 				Dhall::Import::Expression,
 				Dhall::Import::RelativePath.new("self")
 			)
@@ -106,7 +106,7 @@ class TestResolve < Minitest::Test
 		expr = Dhall::Function.of_arguments(
 			Dhall::Variable["Natural"],
 			body: Dhall::Import.new(
-				nil,
+				Dhall::Import::IntegrityCheck.new,
 				Dhall::Import::Expression,
 				Dhall::Import::RelativePath.new("a")
 			)
@@ -119,7 +119,7 @@ class TestResolve < Minitest::Test
 
 	def test_two_references_no_loop
 		expr = Dhall::Import.new(
-			nil,
+			Dhall::Import::IntegrityCheck.new,
 			Dhall::Import::Expression,
 			Dhall::Import::RelativePath.new("2text")
 		)
@@ -135,7 +135,7 @@ class TestResolve < Minitest::Test
 
 	def test_missing
 		expr = Dhall::Import.new(
-			nil,
+			Dhall::Import::IntegrityCheck.new,
 			Dhall::Import::Expression,
 			Dhall::Import::MissingImport.new
 		)
@@ -145,10 +145,22 @@ class TestResolve < Minitest::Test
 		end
 	end
 
+	def test_integrity_check_failure
+		expr = Dhall::Import.new(
+			Dhall::Import::IntegrityCheck.new("sha256", "badhash"),
+			Dhall::Import::Expression,
+			Dhall::Import::RelativePath.new("var")
+		)
+
+		assert_raises Dhall::Import::IntegrityCheck::FailureException do
+			expr.resolve(@resolver).sync
+		end
+	end
+
 	def test_fallback_to_expr
 		expr = Dhall::Operator::ImportFallback.new(
 			lhs: Dhall::Import.new(
-				nil,
+				Dhall::Import::IntegrityCheck.new,
 				Dhall::Import::Expression,
 				Dhall::Import::MissingImport.new
 			),
@@ -161,12 +173,12 @@ class TestResolve < Minitest::Test
 	def test_fallback_to_import
 		expr = Dhall::Operator::ImportFallback.new(
 			lhs: Dhall::Import.new(
-				nil,
+				Dhall::Import::IntegrityCheck.new,
 				Dhall::Import::Expression,
 				Dhall::Import::MissingImport.new
 			),
 			rhs: Dhall::Import.new(
-				nil,
+				Dhall::Import::IntegrityCheck.new,
 				Dhall::Import::Expression,
 				Dhall::Import::RelativePath.new("import")
 			)
@@ -181,7 +193,7 @@ class TestResolve < Minitest::Test
 			.to_return(status: 200, body: "\x00")
 
 		expr = Dhall::Import.new(
-			nil,
+			Dhall::Import::IntegrityCheck.new,
 			Dhall::Import::Expression,
 			Dhall::Import::RelativePath.new("using")
 		)
@@ -194,7 +206,7 @@ class TestResolve < Minitest::Test
 			.to_return(status: 200, body: "\x00")
 
 		expr = Dhall::Import.new(
-			nil,
+			Dhall::Import::IntegrityCheck.new,
 			Dhall::Import::Expression,
 			Dhall::Import::AbsolutePath.new("ipfs", "TESTCID")
 		)
@@ -210,7 +222,7 @@ class TestResolve < Minitest::Test
 			.to_return(status: 200, body: "\x00")
 
 		expr = Dhall::Import.new(
-			nil,
+			Dhall::Import::IntegrityCheck.new,
 			Dhall::Import::Expression,
 			Dhall::Import::AbsolutePath.new("ipfs", "TESTCID")
 		)

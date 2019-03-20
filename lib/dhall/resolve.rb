@@ -246,8 +246,10 @@ module Dhall
 
 			def resolve(resolver)
 				@expr.instance_eval do
-					@path.resolve(resolver).then do |expr|
-						@import_type.call(expr).resolve(resolver.child(@path))
+					@path.resolve(resolver).then do |result|
+						@integrity_check.check(
+							@import_type.call(result)
+						).resolve(resolver.child(@path))
 					end
 				end
 			end

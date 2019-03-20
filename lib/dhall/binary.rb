@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "cbor"
+require "digest/sha2"
 
 require "dhall/ast"
 require "dhall/builtins"
@@ -32,6 +33,14 @@ module Dhall
 
 		def as_cbor
 			as_json
+		end
+
+		def digest(digest: Digest::SHA2.new(256))
+			(digest << normalize.to_binary).freeze
+		end
+
+		def cache_key
+			"sha256:#{digest.hexdigest}"
 		end
 	end
 
@@ -180,7 +189,7 @@ module Dhall
 			parts[0] = Dhall.decode(parts[0]) if path_type < 2 && !parts[0].nil?
 
 			new(
-				integrity_check.nil? ? nil : IntegrityCheck.new(*integrity_check),
+				IntegrityCheck.new(*integrity_check),
 				IMPORT_TYPES[import_type],
 				PATH_TYPES[path_type].new(*parts)
 			)

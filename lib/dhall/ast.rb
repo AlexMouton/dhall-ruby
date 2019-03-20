@@ -974,9 +974,27 @@ module Dhall
 		end
 
 		class IntegrityCheck
-			def initialize(protocol, data)
+			class FailureException < StandardError; end
+
+			def initialize(protocol=:nocheck, data=nil)
 				@protocol = protocol
 				@data = data
+			end
+
+			def to_s
+				"#{@protocol}:#{@data}"
+			end
+
+			def check(expr)
+				if @protocol == :nocheck || expr.cache_key == to_s
+					expr
+				else
+					raise FailureException, "#{expr} does not match #{self}"
+				end
+			end
+
+			def as_json
+				@protocol == :nocheck ? nil : [@protocol, @data]
 			end
 		end
 

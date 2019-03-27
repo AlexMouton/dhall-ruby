@@ -114,7 +114,8 @@ module Dhall
 		def flatten
 			f, args = if function.is_a?(Application)
 				function.flatten
-			elsif function.is_a?(Builtin) && (unfilled = function.unfill).is_a?(Application)
+			elsif function.is_a?(Builtin) &&
+			      (unfilled = function.unfill).is_a?(Application)
 				unfilled.flatten
 			else
 				[function, []]
@@ -221,7 +222,7 @@ module Dhall
 		def as_json
 			if name == "_"
 				index
-			elsif index == 0
+			elsif index.zero?
 				name
 			else
 				[name, index]
@@ -811,10 +812,12 @@ module Dhall
 				fragment  Either(nil, ::String)
 			end)
 
-			HeaderType = RecordType.new(record: {
-				"header" => Variable["Text"],
-				"value"  => Variable["Text"]
-			})
+			HeaderType = RecordType.new(
+				record: {
+					"header" => Variable["Text"],
+					"value"  => Variable["Text"]
+				}
+			)
 
 			def initialize(headers, authority, *path, query, fragment)
 				super(
@@ -986,11 +989,11 @@ module Dhall
 			end
 
 			def check(expr)
-				if @protocol == :nocheck || expr.cache_key == to_s
-					expr
-				else
+				if @protocol != :nocheck && expr.cache_key != to_s
 					raise FailureException, "#{expr} does not match #{self}"
 				end
+
+				expr
 			end
 
 			def as_json

@@ -236,15 +236,15 @@ module Dhall
 	end
 
 	class List
-			def normalize
-				super.with(type: nil)
-			end
+		def normalize
+			super.with(type: nil)
+		end
 	end
 
 	class EmptyList
-			def normalize
-				super.with(type: type.normalize)
-			end
+		def normalize
+			super.with(type: type.normalize)
+		end
 	end
 
 	class Optional

@@ -91,9 +91,9 @@ module Dhall
 
 			def shift(amount, name, min_index)
 				self.class.new(@bindings.merge(
-					Hash[@bindings.map { |var, bindings|
+					Hash[@bindings.map do |var, bindings|
 						[var, bindings.map { |b| b.shift(amount, name, min_index) }]
-					}]
+					end]
 				))
 			end
 		end
@@ -136,9 +136,7 @@ module Dhall
 			}.freeze
 
 			def annotate(context)
-				if @var.name == "Sort"
-					raise TypeError, "Sort has no Type, Kind, or Sort"
-				end
+				raise TypeError, "Sort has no Type, Kind, or Sort" if @var.name == "Sort"
 
 				Dhall::TypeAnnotation.new(
 					value: @var,
@@ -203,7 +201,7 @@ module Dhall
 
 				annotated_then = @then.annotate(context)
 				then_type_type = TypeChecker.for(annotated_then.type)
-				                 .annotate(context).type
+				                            .annotate(context).type
 				if then_type_type != Dhall::Variable["Type"]
 					raise TypeError, "If branches must have types of type Type"
 				end
@@ -216,7 +214,7 @@ module Dhall
 							then:      annotated_then,
 							else:      annotated_else
 						),
-						type: annotated_then.type
+						type:  annotated_then.type
 					)
 				else
 					raise TypeError, "If branches have mismatched types: " \
@@ -264,9 +262,7 @@ module Dhall
 						t.function == Dhall::Variable["List"]
 				end
 
-				unless valid_types
-					raise TypeError, "Operator arguments not List: #{types}"
-				end
+				raise TypeError, "Operator arguments not List: #{types}" unless valid_types
 
 				unless annotated_lhs.type == annotated_rhs.type
 					raise TypeError, "Operator arguments do not match: #{types}"
@@ -480,10 +476,10 @@ module Dhall
 				@expr = expr
 			end
 
-			def annotate(context)
+			def annotate(*)
 				Dhall::TypeAnnotation.new(
 					value: @expr,
-					type: Dhall::Variable["Type"]
+					type:  Dhall::Variable["Type"]
 				)
 			end
 		end
@@ -510,7 +506,7 @@ module Dhall
 
 				Dhall::TypeAnnotation.new(
 					value: @type,
-					type: kinds.first || KINDS.first
+					type:  kinds.first || KINDS.first
 				)
 			end
 		end
@@ -520,10 +516,10 @@ module Dhall
 				@expr = expr
 			end
 
-			def annotate(context)
+			def annotate(*)
 				Dhall::TypeAnnotation.new(
 					value: @expr,
-					type: Dhall::EmptyRecordType.new
+					type:  Dhall::EmptyRecordType.new
 				)
 			end
 		end
@@ -547,7 +543,7 @@ module Dhall
 
 				Dhall::TypeAnnotation.new(
 					value: arecord,
-					type: type
+					type:  type
 				)
 			end
 		end
@@ -625,8 +621,8 @@ module Dhall
 
 				type = Dhall::UnionType.new(
 					alternatives: Hash[@union.alternatives.alternatives.merge(
-							@union.tag => annotated_value.type
-						).sort]
+						@union.tag => annotated_value.type
+					).sort]
 				)
 
 				# Annotate to sanity check
@@ -634,7 +630,7 @@ module Dhall
 
 				Dhall::TypeAnnotation.new(
 					value: @union.with(value: annotated_value),
-					type: type
+					type:  type
 				)
 			end
 		end
@@ -658,7 +654,7 @@ module Dhall
 					raise TypeError, "Merge expected Union got: #{aunion.type}"
 				end
 
-				type = arecord.type.record.reduce(@merge.type) do |type, (k, htype)|
+				type = arecord.type.record.reduce(@merge.type) do |type_acc, (k, htype)|
 					unless aunion.type.alternatives.key?(k)
 						raise TypeError, "Merge handler for unknown alternative: #{k}"
 					end
@@ -667,7 +663,7 @@ module Dhall
 						raise TypeError, "Merge handlers must all be functions"
 					end
 
-					if type && htype.body != type
+					if type_acc && htype.body != type_acc
 						raise TypeError, "Handler output types must all match"
 					end
 
@@ -753,7 +749,7 @@ module Dhall
 
 				Dhall::TypeAnnotation.new(
 					value: @func.with(body: abody),
-					type: type
+					type:  type
 				)
 			end
 		end
@@ -785,7 +781,7 @@ module Dhall
 
 				Dhall::TypeAnnotation.new(
 					value: @app.with(function: afunc, argument: aarg),
-					type: type
+					type:  type
 				)
 			end
 		end
@@ -823,7 +819,7 @@ module Dhall
 
 				Dhall::TypeAnnotation.new(
 					value: ablock,
-					type: abody.type
+					type:  abody.type
 				)
 			end
 		end
@@ -852,7 +848,7 @@ module Dhall
 			end
 
 			TYPES = {
-				"Natural/build" => Dhall::Forall.of_arguments(
+				"Natural/build"     => Dhall::Forall.of_arguments(
 					Dhall::Forall.new(
 						var:  "natural",
 						type: Dhall::Variable["Type"],
@@ -871,7 +867,7 @@ module Dhall
 					),
 					body: Dhall::Variable["Natural"]
 				),
-				"Natural/fold" => Dhall::Forall.of_arguments(
+				"Natural/fold"      => Dhall::Forall.of_arguments(
 					Dhall::Variable["Natural"],
 					body: Dhall::Forall.new(
 						var:  "natural",
@@ -890,15 +886,15 @@ module Dhall
 						)
 					)
 				),
-				"Natural/isZero" => Dhall::Forall.of_arguments(
+				"Natural/isZero"    => Dhall::Forall.of_arguments(
 					Dhall::Variable["Natural"],
 					body: Dhall::Variable["Bool"]
 				),
-				"Natural/even" => Dhall::Forall.of_arguments(
+				"Natural/even"      => Dhall::Forall.of_arguments(
 					Dhall::Variable["Natural"],
 					body: Dhall::Variable["Bool"]
 				),
-				"Natural/odd" => Dhall::Forall.of_arguments(
+				"Natural/odd"       => Dhall::Forall.of_arguments(
 					Dhall::Variable["Natural"],
 					body: Dhall::Variable["Bool"]
 				),
@@ -906,15 +902,15 @@ module Dhall
 					Dhall::Variable["Natural"],
 					body: Dhall::Variable["Integer"]
 				),
-				"Natural/show" => Dhall::Forall.of_arguments(
+				"Natural/show"      => Dhall::Forall.of_arguments(
 					Dhall::Variable["Natural"],
 					body: Dhall::Variable["Text"]
 				),
-				"Text/show" => Dhall::Forall.of_arguments(
+				"Text/show"         => Dhall::Forall.of_arguments(
 					Dhall::Variable["Text"],
 					body: Dhall::Variable["Text"]
 				),
-				"List/build" => Dhall::Forall.new(
+				"List/build"        => Dhall::Forall.new(
 					var:  "a",
 					type: Dhall::Variable["Type"],
 					body: Dhall::Forall.of_arguments(
@@ -941,7 +937,7 @@ module Dhall
 						)
 					)
 				),
-				"List/fold" => Dhall::Forall.new(
+				"List/fold"         => Dhall::Forall.new(
 					var:  "a",
 					type: Dhall::Variable["Type"],
 					body: Dhall::Forall.of_arguments(
@@ -968,7 +964,7 @@ module Dhall
 						)
 					)
 				),
-				"List/length" => Dhall::Forall.new(
+				"List/length"       => Dhall::Forall.new(
 					var:  "a",
 					type: Dhall::Variable["Type"],
 					body: Dhall::Forall.of_arguments(
@@ -979,7 +975,7 @@ module Dhall
 						body: Dhall::Variable["Natural"]
 					)
 				),
-				"List/head" => Dhall::Forall.new(
+				"List/head"         => Dhall::Forall.new(
 					var:  "a",
 					type: Dhall::Variable["Type"],
 					body: Dhall::Forall.of_arguments(
@@ -993,7 +989,7 @@ module Dhall
 						)
 					)
 				),
-				"List/last" => Dhall::Forall.new(
+				"List/last"         => Dhall::Forall.new(
 					var:  "a",
 					type: Dhall::Variable["Type"],
 					body: Dhall::Forall.of_arguments(
@@ -1007,7 +1003,7 @@ module Dhall
 						)
 					)
 				),
-				"List/indexed" => Dhall::Forall.new(
+				"List/indexed"      => Dhall::Forall.new(
 					var:  "a",
 					type: Dhall::Variable["Type"],
 					body: Dhall::Forall.of_arguments(
@@ -1017,14 +1013,16 @@ module Dhall
 						),
 						body: Dhall::Application.new(
 							function: Dhall::Variable["List"],
-							argument: Dhall::RecordType.new(record: {
-								"index" => Dhall::Variable["Natural"],
-								"value" => Dhall::Variable["a"]
-							})
+							argument: Dhall::RecordType.new(
+								record: {
+									"index" => Dhall::Variable["Natural"],
+									"value" => Dhall::Variable["a"]
+								}
+							)
 						)
 					)
 				),
-				"List/reverse" => Dhall::Forall.new(
+				"List/reverse"      => Dhall::Forall.new(
 					var:  "a",
 					type: Dhall::Variable["Type"],
 					body: Dhall::Forall.of_arguments(
@@ -1038,7 +1036,7 @@ module Dhall
 						)
 					)
 				),
-				"Optional/fold" => Dhall::Forall.new(
+				"Optional/fold"     => Dhall::Forall.new(
 					var:  "a",
 					type: Dhall::Variable["Type"],
 					body: Dhall::Forall.of_arguments(
@@ -1064,7 +1062,7 @@ module Dhall
 						)
 					)
 				),
-				"Optional/build" => Dhall::Forall.new(
+				"Optional/build"    => Dhall::Forall.new(
 					var:  "a",
 					type: Dhall::Variable["Type"],
 					body: Dhall::Forall.of_arguments(
@@ -1090,18 +1088,18 @@ module Dhall
 						)
 					)
 				),
-				"Integer/show" => Dhall::Forall.of_arguments(
+				"Integer/show"      => Dhall::Forall.of_arguments(
 					Dhall::Variable["Integer"],
 					body: Dhall::Variable["Text"]
 				),
-				"Integer/toDouble" => Dhall::Forall.of_arguments(
+				"Integer/toDouble"  => Dhall::Forall.of_arguments(
 					Dhall::Variable["Integer"],
 					body: Dhall::Variable["Double"]
 				),
-				"Double/show" => Dhall::Forall.of_arguments(
+				"Double/show"       => Dhall::Forall.of_arguments(
 					Dhall::Variable["Double"],
 					body: Dhall::Variable["Text"]
-				),
+				)
 			}.freeze
 
 			def annotate(*)

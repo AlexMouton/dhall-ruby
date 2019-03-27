@@ -27,7 +27,7 @@ module Dhall
 			if (unfilled = unfill).class != self.class
 				unfilled.as_json
 			else
-				self.class.name.split(/::/).last.gsub(/_/, "/")
+				self.class.name.split(/::/).last.tr("_", "/")
 			end
 		end
 
@@ -386,9 +386,9 @@ module Dhall
 
 			def call(*args)
 				args.reduce(self) do |fold, arg|
-					fold.fill_or_call(arg) {
+					fold.fill_or_call(arg) do
 						fold.optional.reduce(arg, &fold.f)
-					} || super
+					end || super
 				end
 			end
 		end

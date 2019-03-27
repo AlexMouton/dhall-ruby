@@ -45,10 +45,11 @@ module Dhall
 	end
 
 	class Application
-		def self.decode(f, *args)
-			args.map(&Dhall.method(:decode)).reduce(Dhall.decode(f)) { |f, arg|
+		def self.decode(function, *args)
+			function = Dhall.decode(function)
+			args.map(&Dhall.method(:decode)).reduce(function) do |f, arg|
 				new(function: f, argument: arg)
-			}
+			end
 		end
 	end
 

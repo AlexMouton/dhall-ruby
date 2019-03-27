@@ -138,7 +138,8 @@ module Dhall
 			end
 
 			def resolve_http(http_source)
-				ExpressionResolver.for(http_source.headers)
+				ExpressionResolver
+					.for(http_source.headers)
 					.resolve(self).then do |headers|
 					@http_resolutions.register(
 						http_source.with(headers: headers.normalize)
@@ -147,7 +148,8 @@ module Dhall
 			end
 
 			def resolve_https(https_source)
-				ExpressionResolver.for(https_source.headers)
+				ExpressionResolver
+					.for(https_source.headers)
 					.resolve(self).then do |headers|
 					@https_resolutions.register(
 						https_source.with(headers: headers.normalize)

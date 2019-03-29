@@ -481,6 +481,10 @@ module Dhall
 			record Util::HashOf.new(::String, Expression, min: 1)
 		end)
 
+		def keys
+			record.keys
+		end
+
 		def fetch(k, default=nil, &block)
 			record.fetch(k, *default, &block)
 		end
@@ -526,6 +530,10 @@ module Dhall
 
 	class EmptyRecord < Expression
 		include(ValueSemantics.for_attributes {})
+
+		def keys
+			[]
+		end
 
 		def fetch(k, default=nil, &block)
 			{}.fetch(k, *default, &block)
@@ -620,6 +628,12 @@ module Dhall
 					alternatives: remains
 				)
 			).normalize
+		end
+
+		def constructor_types
+			alternatives.each_with_object({}) do |(k, type), ctypes|
+				ctypes[k] = Forall.new(var: k, type: type, body: self)
+			end
 		end
 
 		def as_json
@@ -1060,6 +1074,15 @@ module Dhall
 					argument: let.assign
 				)
 			end
+		end
+
+		def eliminate
+			return unflatten.eliminate if lets.length > 1
+
+			body.substitute(
+				Dhall::Variable[lets.first.var],
+				lets.first.assign.shift(1, lets.first.var, 0)
+			).shift(-1, lets.first.var, 0)
 		end
 
 		def as_json

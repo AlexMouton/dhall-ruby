@@ -5,6 +5,12 @@ require "dhall/normalize"
 
 module Dhall
 	module TypeChecker
+		def self.assert(type, assertion, message)
+			unless assertion === type
+				raise TypeError, message
+			end
+		end
+
 		def self.for(expr)
 			case expr
 			when Dhall::Variable
@@ -62,7 +68,7 @@ module Dhall
 			when Dhall::Function
 				Function.new(expr)
 			when Dhall::LetBlock
-				LetBlock.new(expr)
+				LetBlock.for(expr)
 			when Dhall::TypeAnnotation
 				TypeAnnotation.new(expr)
 			when Dhall::Builtin
@@ -558,29 +564,23 @@ module Dhall
 			def annotate(context)
 				arecord = TypeChecker.for(@record).annotate(context)
 
-				if arecord.type == Dhall::Variable["Type"]
-					Dhall::TypeAnnotation.new(
-						value: @selection,
-						type:  TypeChecker.for(@record.normalize.fetch(@selector) {
-							raise TypeError, "#{@record} has no field #{@selector}"
-						}).annotate(context).type.with(var: @selector)
-					)
+				fetch_from = if arecord.type == Dhall::Variable["Type"]
+					normalized = @record.normalize
+					TypeChecker.assert normalized, Dhall::UnionType,
+					                   "RecordSelection on #{arecord.type}"
+					normalized.constructor_types
+				elsif arecord.type.class == Dhall::RecordType
+					arecord.type.record
 				else
-					fetch_from = if arecord.type.class == Dhall::RecordType
-						arecord.type.record
-					elsif arecord.value.is_a?(Dhall::Record)
-						arecord.value.record
-					else
-						raise TypeError, "RecordSelection on #{arecord.type}"
-					end
-
-					Dhall::TypeAnnotation.new(
-						value: @selection.with(record: arecord),
-						type:  fetch_from.fetch(@selector) do
-							raise TypeError, "#{fetch_from} has no field #{@selector}"
-						end
-					)
+					raise TypeError, "RecordSelection on #{arecord.type}"
 				end
+
+				Dhall::TypeAnnotation.new(
+					value: @selection.with(record: arecord),
+					type:  fetch_from.fetch(@selector) do
+						raise TypeError, "#{fetch_from} has no field #{@selector}"
+					end
+				)
 			end
 		end
 
@@ -642,54 +642,97 @@ module Dhall
 				@union = TypeChecker.for(merge.input)
 			end
 
-			def annotate(context)
-				arecord = @record.annotate(context)
-				aunion = @union.annotate(context)
+			class Handlers
+				def initialize(annotation)
+					@type = annotation.type
 
-				unless arecord.type.is_a?(Dhall::RecordType)
-					raise TypeError, "Merge expected Record got: #{arecord.type}"
+					TypeChecker.assert @type, Dhall::RecordType,
+					                   "Merge expected Record got: #{@type}"
+
+					@type.record.values.each do |htype|
+						TypeChecker.assert htype, Dhall::Forall,
+						                   "Merge handlers must all be functions"
+					end
 				end
 
-				unless aunion.type.is_a?(Dhall::UnionType)
-					raise TypeError, "Merge expected Union got: #{aunion.type}"
+				def output_type(output_annotation=nil)
+					@type.record.values.reduce(output_annotation) do |type_acc, htype|
+						if type_acc && htype.body.normalize != type_acc.normalize
+							raise TypeError, "Handler output types must all match"
+						end
+
+						htype.body.shift(-1, htype.var, 0)
+					end
 				end
 
-				type = arecord.type.record.reduce(@merge.type) do |type_acc, (k, htype)|
-					unless aunion.type.alternatives.key?(k)
-						raise TypeError, "Merge handler for unknown alternative: #{k}"
-					end
-
-					unless htype.is_a?(Dhall::Forall)
-						raise TypeError, "Merge handlers must all be functions"
-					end
-
-					if type_acc && htype.body != type_acc
-						raise TypeError, "Handler output types must all match"
-					end
-
-					htype.body.shift(-1, htype.var, 0)
+				def keys
+					@type.record.keys
 				end
 
-				aunion.type.alternatives.each do |k, atype|
-					unless arecord.type.record.key?(k)
+				def fetch(k)
+					@type.record.fetch(k) do
 						raise TypeError, "No merge handler for alternative: #{k}"
 					end
+				end
+			end
 
-					unless arecord.type.record[k].type == atype
-						raise TypeError, "Handler argument does not match " \
-						                 "alternative type: #{atype}"
+			class AnnotatedMerge
+				def initialize(merge:, record:, input:)
+					@merge = merge.with(record: record, input: input)
+					@handlers = Handlers.new(record)
+					@record = record
+					@union = input
+
+					TypeChecker.assert @union.type, Dhall::UnionType,
+					                   "Merge expected Union got: #{@union.type}"
+				end
+
+				def annotation
+					Dhall::TypeAnnotation.new(
+						value: @merge,
+						type:  type
+					)
+				end
+
+				def type
+					@type ||= @handlers.output_type(@merge.type)
+				end
+
+				def kind(context)
+					TypeChecker.for(type).annotate(context).type
+				end
+
+				def assert_union_and_handlers_match
+					extras = @handlers.keys - @union.type.alternatives.keys
+					TypeChecker.assert extras, [],
+					                   "Merge handlers unknown alternatives: #{extras}"
+
+					@union.type.alternatives.each do |k, atype|
+						TypeChecker.assert(
+							@handlers.fetch(k).type,
+							atype,
+							"Handler argument does not match alternative type: #{atype}"
+						)
 					end
 				end
+			end
 
-				kind = TypeChecker.for(type).annotate(context).type
-				unless kind == Dhall::Variable["Type"]
-					raise TypeError, "Merge must have kind Type"
-				end
-
-				Dhall::TypeAnnotation.new(
-					value: @merge.with(record: arecord, input: aunion),
-					type:  type
+			def annotate(context)
+				amerge = AnnotatedMerge.new(
+					merge:  @merge,
+					record: @record.annotate(context),
+					input:  @union.annotate(context)
 				)
+
+				amerge.assert_union_and_handlers_match
+
+				TypeChecker.assert(
+					amerge.kind(context),
+					Dhall::Variable["Type"],
+					"Merge must have kind Type"
+				)
+
+				amerge.annotation
 			end
 		end
 
@@ -758,65 +801,67 @@ module Dhall
 			def initialize(app)
 				@app = app
 				@func = TypeChecker.for(app.function)
-				@arg = TypeChecker.for(app.argument)
+				@arg = app.argument
 			end
 
 			def annotate(context)
 				afunc = @func.annotate(context)
-				aarg = @arg.annotate(context)
 
-				unless afunc.type.is_a?(Dhall::Forall)
-					raise TypeError, "Application LHS is not a function"
-				end
+				TypeChecker.assert afunc.type, Dhall::Forall,
+				                   "Application LHS is not a function"
 
-				unless afunc.type.type.normalize == aarg.type.normalize
-					raise TypeError, "Application expected #{afunc.type.type} "\
-					                 "got #{aarg.type}"
-				end
-
-				type = afunc.type.body.substitute(
-					Dhall::Variable[afunc.type.var],
-					aarg.value.shift(1, afunc.type.var, 0)
-				).shift(-1, afunc.type.var, 0)
+				aarg = TypeChecker.for(
+					Dhall::TypeAnnotation.new(value: @arg, type: afunc.type.type)
+				).annotate(context)
 
 				Dhall::TypeAnnotation.new(
 					value: @app.with(function: afunc, argument: aarg),
-					type:  type
+					type:  afunc.type.call(aarg.value)
 				)
 			end
 		end
 
 		class LetBlock
+			def self.for(letblock)
+				if letblock.lets.first.type
+					LetBlockAnnotated.new(letblock)
+				else
+					LetBlock.new(letblock)
+				end
+			end
+
 			def initialize(letblock)
 				@letblock = letblock.unflatten
 				@let = @letblock.lets.first
 			end
 
 			def annotate(context)
-				aassign = TypeChecker.for(@let.assign).annotate(context)
-
-				if @let.type && @let.type != aassign.type
-					raise TypeError, "Let assignment does not match annotation: " \
-					                 "#{@let.type}, #{aassign.type}"
-				end
-
-				abody = TypeChecker.for(@letblock.body.substitute(
-					Dhall::Variable[@let.var],
-					@let.assign.shift(1, @let.var, 0)
-				).shift(-1, @let.var, 0)).annotate(context)
-
-				ablock = @letblock.with(
-					lets: [@let.with(type: aassign.type)],
-					body: Dhall::TypeAnnotation.new(
-						value: @letblock.body,
-						type:  abody.type
-					)
-				)
-
+				alet = @let.with(type: assign_type(context))
+				type = TypeChecker.for(@letblock.eliminate).annotate(context).type
+				abody = Dhall::TypeAnnotation.new(value: @letblock.body, type: type)
 				Dhall::TypeAnnotation.new(
-					value: ablock,
-					type:  abody.type
+					value: @letblock.with(lets: [alet], body: abody),
+					type:  type
 				)
+			end
+
+			protected
+
+			def assign_type(context)
+				TypeChecker.for(@let.assign).annotate(context).type
+			end
+		end
+
+		class LetBlockAnnotated < LetBlock
+			protected
+
+			def assign_type(context)
+				TypeChecker.for(
+					Dhall::TypeAnnotation.new(
+						value: @let.assign,
+						type:  @let.type
+					)
+				).annotate(context).type
 			end
 		end
 

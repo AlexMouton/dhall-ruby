@@ -620,9 +620,9 @@ module Dhall
 				annotated_value = @value.annotate(context)
 
 				type = Dhall::UnionType.new(
-					alternatives: Hash[@union.alternatives.alternatives.merge(
-						@union.tag => annotated_value.type
-					).sort]
+					alternatives: { @union.tag => annotated_value.type }.merge(
+						@union.alternatives.alternatives
+					)
 				)
 
 				# Annotate to sanity check
@@ -800,13 +800,9 @@ module Dhall
 					                 "#{@let.type}, #{aassign.type}"
 				end
 
-				Dhall::Function.disable_alpha_normalization!
-				nassign = @let.assign.normalize.shift(1, @let.var, 0)
-				Dhall::Function.enable_alpha_normalization!
-
 				abody = TypeChecker.for(@letblock.body.substitute(
 					Dhall::Variable[@let.var],
-					nassign
+					@let.assign.shift(1, @let.var, 0)
 				).shift(-1, @let.var, 0)).annotate(context)
 
 				ablock = @letblock.with(
@@ -832,7 +828,7 @@ module Dhall
 			def annotate(context)
 				redo_annotation = TypeChecker.for(@expr.value).annotate(context)
 
-				if redo_annotation.type == @expr.type
+				if redo_annotation.type.normalize == @expr.type.normalize
 					redo_annotation
 				else
 					raise TypeError, "TypeAnnotation does not match: " \

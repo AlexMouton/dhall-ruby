@@ -540,16 +540,11 @@ module Dhall
 					[k, TypeChecker.for(v).annotate(context)]
 				end
 
-				type = Dhall::RecordType.for(Hash[
-					arecord.record.map { |k, v| [k, v.type] }
-				])
-
-				# Annonate to sanity check
-				TypeChecker.for(type).annotate(context)
-
 				Dhall::TypeAnnotation.new(
 					value: arecord,
-					type:  type
+					type:  TypeChecker.for(Dhall::RecordType.for(Hash[
+						arecord.record.map { |k, v| [k, v.type] }
+					])).annotate(context).value
 				)
 			end
 		end

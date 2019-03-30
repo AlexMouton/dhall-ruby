@@ -613,6 +613,10 @@ module Dhall
 			self == other
 		end
 
+		def merge(other)
+			with(alternatives: alternatives.merge(other.alternatives))
+		end
+
 		def fetch(k, default=nil)
 			if (default || block_given?) && !alternatives.key?(k)
 				return (default || yield)

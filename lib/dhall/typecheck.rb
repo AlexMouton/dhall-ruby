@@ -620,10 +620,8 @@ module Dhall
 				annotated_value = @value.annotate(context)
 
 				type = Dhall::UnionType.new(
-					alternatives: { @union.tag => annotated_value.type }.merge(
-						@union.alternatives.alternatives
-					)
-				)
+					alternatives: { @union.tag => annotated_value.type }
+				).merge(@union.alternatives)
 
 				# Annotate to sanity check
 				TypeChecker.for(type).annotate(context)

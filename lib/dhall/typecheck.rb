@@ -739,33 +739,54 @@ module Dhall
 		class Forall
 			def initialize(expr)
 				@expr = expr
+				@var = expr.var
+				@var_type = expr.type
 				@input = TypeChecker.for(expr.type)
 				@output = TypeChecker.for(expr.body)
 			end
 
+			module FunctionKind
+				def self.for(inkind, outkind)
+					if inkind.nil? || outkind.nil?
+						raise TypeError, "FunctionType part of this is a term"
+					end
+
+					raise TypeError, "Dependent types are not allowed" if outkind > inkind
+
+					if outkind.zero?
+						Term.new
+					else
+						Polymorphic.new(inkind, outkind)
+					end
+				end
+
+				class Term
+					def kind
+						KINDS.first
+					end
+				end
+
+				class Polymorphic
+					def initialize(inkind, outkind)
+						@inkind = inkind
+						@outkind = outkind
+					end
+
+					def kind
+						KINDS[[@outkind, @inkind].max]
+					end
+				end
+			end
+
 			def annotate(context)
-				inkind = @input.annotate(context).type
-				outkind = @output.annotate(
-					context.add(@expr.var, @expr.type).shift(1, @expr.var, 0)
-				).type
-
-				if !KINDS.include?(inkind) || !KINDS.include?(outkind)
-					raise TypeError, "FunctionType part of this is a term"
-				end
-
-				if KINDS.index(outkind) > KINDS.index(inkind)
-					raise TypeError, "Dependent types are not allowed"
-				end
-
-				type = if outkind == KINDS.first
-					KINDS.first
-				else
-					KINDS[[KINDS.index(outkind), KINDS.index(inkind)].max]
-				end
+				inkind = KINDS.index(@input.annotate(context).type)
+				outkind = KINDS.index(@output.annotate(
+					context.add(@var, @var_type).shift(1, @var, 0)
+				).type)
 
 				Dhall::TypeAnnotation.new(
 					value: @expr,
-					type:  type
+					type:  FunctionKind.for(inkind, outkind).kind
 				)
 			end
 		end

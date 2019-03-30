@@ -561,25 +561,44 @@ module Dhall
 				@selector = selection.selector
 			end
 
+			class Selector
+				def self.for(annotated_record)
+					if annotated_record.type == Dhall::Variable["Type"]
+						TypeSelector.new(annotated_record.value)
+					elsif annotated_record.type.class == Dhall::RecordType
+						new(annotated_record.type)
+					else
+						raise TypeError, "RecordSelection on #{annotated_record.type}"
+					end
+				end
+
+				def initialize(type)
+					@fetch_from = type.record
+				end
+
+				def select(selector)
+					@fetch_from.fetch(selector) do
+						raise TypeError, "#{@fetch_from} has no field #{@selector}"
+					end
+				end
+			end
+
+			class TypeSelector < Selector
+				def initialize(union)
+					normalized = union.normalize
+					TypeChecker.assert normalized, Dhall::UnionType,
+					                   "RecordSelection on #{normalized}"
+					@fetch_from = normalized.constructor_types
+				end
+			end
+
 			def annotate(context)
 				arecord = TypeChecker.for(@record).annotate(context)
-
-				fetch_from = if arecord.type == Dhall::Variable["Type"]
-					normalized = @record.normalize
-					TypeChecker.assert normalized, Dhall::UnionType,
-					                   "RecordSelection on #{arecord.type}"
-					normalized.constructor_types
-				elsif arecord.type.class == Dhall::RecordType
-					arecord.type.record
-				else
-					raise TypeError, "RecordSelection on #{arecord.type}"
-				end
+				selector = Selector.for(arecord)
 
 				Dhall::TypeAnnotation.new(
 					value: @selection.with(record: arecord),
-					type:  fetch_from.fetch(@selector) do
-						raise TypeError, "#{fetch_from} has no field #{@selector}"
-					end
+					type:  selector.select(@selector)
 				)
 			end
 		end

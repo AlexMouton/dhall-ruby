@@ -685,6 +685,8 @@ module Dhall
 
 					TypeChecker.assert @union.type, Dhall::UnionType,
 					                   "Merge expected Union got: #{@union.type}"
+
+					assert_union_and_handlers_match
 				end
 
 				def annotation
@@ -698,8 +700,16 @@ module Dhall
 					@type ||= @handlers.output_type(@merge.type)
 				end
 
-				def kind(context)
-					TypeChecker.for(type).annotate(context).type
+				def assert_kind(context)
+					kind = TypeChecker.for(type).annotate(context).type
+
+					TypeChecker.assert(
+						kind,
+						Dhall::Variable["Type"],
+						"Merge must have kind Type"
+					)
+
+					kind
 				end
 
 				def assert_union_and_handlers_match
@@ -723,15 +733,7 @@ module Dhall
 					record: @record.annotate(context),
 					input:  @union.annotate(context)
 				)
-
-				amerge.assert_union_and_handlers_match
-
-				TypeChecker.assert(
-					amerge.kind(context),
-					Dhall::Variable["Type"],
-					"Merge must have kind Type"
-				)
-
+				amerge.assert_kind(context)
 				amerge.annotation
 			end
 		end

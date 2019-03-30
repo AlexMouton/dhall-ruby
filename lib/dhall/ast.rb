@@ -443,6 +443,14 @@ module Dhall
 			}.sort])
 		end
 
+		def keys
+			record.keys
+		end
+
+		def slice(keys)
+			RecordType.for(record.select { |k, _| keys.include?(k) })
+		end
+
 		def ==(other)
 			other.respond_to?(:record) && record.to_a == other.record.to_a
 		end
@@ -458,6 +466,10 @@ module Dhall
 
 	class EmptyRecordType < RecordType
 		include(ValueSemantics.for_attributes {})
+
+		def slice(*)
+			self
+		end
 
 		def record
 			{}

@@ -587,25 +587,23 @@ module Dhall
 		class RecordProjection
 			def initialize(projection)
 				@projection = projection
-				@record = projection.record
+				@record = TypeChecker.for(projection.record)
 				@selectors = projection.selectors
 			end
 
 			def annotate(context)
-				arecord = TypeChecker.for(@record).annotate(context)
+				arecord = @record.annotate(context)
 
-				unless arecord.type.class == Dhall::RecordType
-					raise TypeError, "RecordProjection on #{arecord.type}"
-				end
+				TypeChecker.assert arecord.type.class.name, "Dhall::RecordType",
+				                   "RecordProjection on #{arecord.type}"
 
-				slice = arecord.type.record.select { |k, _| @selectors.include?(k) }
-				if slice.size != @selectors.length
-					raise TypeError, "#{arecord.type} missing one of: #{@selectors}"
-				end
+				slice = arecord.type.slice(@selectors)
+				TypeChecker.assert slice.keys, @selectors,
+				                   "#{arecord.type} missing one of: #{@selectors}"
 
 				Dhall::TypeAnnotation.new(
 					value: @projection.with(record: arecord),
-					type:  Dhall::RecordType.for(slice)
+					type:  slice
 				)
 			end
 		end

@@ -307,9 +307,8 @@ module Dhall
 
 				type = annotated_lhs.type.deep_merge_type(annotated_rhs.type)
 
-				unless type.is_a?(Dhall::RecordType)
-					raise TypeError, "RecursiveRecordMerge got #{type}"
-				end
+				TypeChecker.assert type, Dhall::RecordType,
+				                   "RecursiveRecordMerge got #{type}"
 
 				# Annotate to sanity check
 				TypeChecker.for(type).annotate(context)

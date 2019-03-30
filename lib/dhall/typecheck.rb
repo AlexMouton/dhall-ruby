@@ -361,27 +361,22 @@ module Dhall
 			end
 
 			def annotate(context)
-				annotated_lhs = @lhs.annotate(context)
-				annotated_rhs = @rhs.annotate(context)
+				lhs_kind = @lhs.annotate(context).type
+				rhs_kind = @rhs.annotate(context).type
 
-				if annotated_lhs.type != annotated_rhs.type
-					raise TypeError, "RecursiveRecordTypeMerge mixed kinds: " \
-					                 "#{annotated_lhs.type}, #{annotated_rhs.type}"
-				end
+				TypeChecker.assert lhs_kind, rhs_kind,
+				                   "RecursiveRecordTypeMerge mixed kinds: " \
+				                   "#{lhs_kind}, #{rhs_kind}"
 
 				type = @expr.lhs.deep_merge_type(@expr.rhs)
 
-				unless type.is_a?(Dhall::RecordType)
-					raise TypeError, "RecursiveRecordMerge got #{type}"
-				end
+				TypeChecker.assert type, Dhall::RecordType,
+				                   "RecursiveRecordMerge got #{type}"
 
 				# Annotate to sanity check
 				TypeChecker.for(type).annotate(context)
 
-				Dhall::TypeAnnotation.new(
-					value: @expr,
-					type:  annotated_lhs.type
-				)
+				Dhall::TypeAnnotation.new(value: @expr, type: lhs_kind)
 			end
 		end
 

@@ -90,11 +90,11 @@ module Dhall
 	class Optional
 		def self.decode(type, value=nil)
 			if value.nil?
-				OptionalNone.new(type: Dhall.decode(type))
+				OptionalNone.new(value_type: Dhall.decode(type))
 			else
 				Optional.new(
-					value: Dhall.decode(value),
-					type:  type.nil? ? type : Dhall.decode(type)
+					value:       Dhall.decode(value),
+					value_type:  type.nil? ? type : Dhall.decode(type)
 				)
 			end
 		end

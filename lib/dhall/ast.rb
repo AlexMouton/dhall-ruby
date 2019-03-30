@@ -360,20 +360,29 @@ module Dhall
 
 	class Optional < Expression
 		include(ValueSemantics.for_attributes do
-			value Expression
-			type Either(nil, Expression), default: nil
+			value      Expression
+			value_type Either(nil, Expression), default: nil
 		end)
 
 		def self.for(value, type: nil)
 			if value.nil?
-				OptionalNone.new(type: type)
+				OptionalNone.new(value_type: value_type)
 			else
-				Optional.new(value: value, type: type)
+				Optional.new(value: value, value_type: type)
 			end
 		end
 
+		def type
+			return unless value_type
+
+			Dhall::Application.new(
+				function: Dhall::Variable["Optional"],
+				argument: value_type
+			)
+		end
+
 		def map(type: nil, &block)
-			with(value: block[value], type: type)
+			with(value: block[value], value_type: value_type)
 		end
 
 		def reduce(_, &block)
@@ -381,17 +390,17 @@ module Dhall
 		end
 
 		def as_json
-			[5, type&.as_json, value.as_json]
+			[5, value_type&.as_json, value.as_json]
 		end
 	end
 
 	class OptionalNone < Optional
 		include(ValueSemantics.for_attributes do
-			type Expression
+			value_type Expression
 		end)
 
 		def map(type: nil)
-			type.nil? ? self : with(type: type)
+			type.nil? ? self : with(value_type: value_type)
 		end
 
 		def reduce(z)
@@ -399,7 +408,7 @@ module Dhall
 		end
 
 		def as_json
-			[0, Variable["None"].as_json, type.as_json]
+			[0, Variable["None"].as_json, value_type.as_json]
 		end
 	end
 

@@ -15,14 +15,14 @@ class TestTypechecker < Minitest::Test
 		next if test =~ /prelude/
 
 		define_method("test_#{test}") do
-			assert_kind_of(
-				Dhall::TypeAnnotation,
+			assert_respond_to(
 				Dhall::TypeChecker.for(
 					Dhall::TypeAnnotation.new(
 						value: Dhall.from_binary(path.binread),
 						type:  Dhall.from_binary((TESTS + "#{test}B.dhallb").binread)
 					)
-				).annotate(Dhall::TypeChecker::Context.new)
+				).annotate(Dhall::TypeChecker::Context.new),
+				:type
 			)
 		end
 	end

@@ -436,18 +436,13 @@ module Dhall
 			end
 
 			def annotate(context)
-				type_type = TypeChecker.for(@expr.type).annotate(context).type
-				if type_type != Dhall::Variable["Type"]
-					raise TypeError, "OptionalNone element type not of type Type"
-				end
-
-				Dhall::TypeAnnotation.new(
-					value: @expr,
-					type:  Dhall::Application.new(
-						function: Dhall::Variable["Optional"],
-						argument: @expr.type
-					)
+				TypeChecker.assert(
+					TypeChecker.for(@expr.value_type).annotate(context).type,
+					Dhall::Variable["Type"],
+					"OptionalNone element type not of type Type"
 				)
+
+				@expr
 			end
 		end
 
@@ -457,23 +452,16 @@ module Dhall
 			end
 
 			def annotate(context)
-				asome = @some.map(type: @some.type) do |el|
+				asome = @some.map(type: @some.value_type) do |el|
 					TypeChecker.for(el).annotate(context)
 				end
-				some = asome.with(type: asome.value.type)
+				some = asome.with(value_type: asome.value.type)
 
-				type_type = TypeChecker.for(some.type).annotate(context).type
-				if type_type != Dhall::Variable["Type"]
-					raise TypeError, "Some type no of type Type, was: #{type_type}"
-				end
+				type_type = TypeChecker.for(some.value_type).annotate(context).type
+				TypeChecker.assert type_type, Dhall::Variable["Type"],
+				                   "Some type not of type Type, was: #{type_type}"
 
-				Dhall::TypeAnnotation.new(
-					value: some,
-					type:  Dhall::Application.new(
-						function: Dhall::Variable["Optional"],
-						argument: some.type
-					)
-				)
+				some
 			end
 		end
 

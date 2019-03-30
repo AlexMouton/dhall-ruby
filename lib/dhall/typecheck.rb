@@ -272,20 +272,23 @@ module Dhall
 				@rhs = TypeChecker.for(expr.rhs)
 			end
 
+			module IsList
+				def self.===(other)
+					other.is_a?(Dhall::Application) &&
+						other.function == Dhall::Variable["List"]
+				end
+			end
+
 			def annotate(context)
 				annotated_lhs = @lhs.annotate(context)
 				annotated_rhs = @rhs.annotate(context)
+
 				types = [annotated_lhs.type, annotated_rhs.type]
-				valid_types = types.all? do |t|
-					t.is_a?(Dhall::Application) &&
-						t.function == Dhall::Variable["List"]
-				end
+				TypeChecker.assert types, Util::ArrayOf.new(IsList),
+				                   "Operator arguments not List: #{types}"
 
-				raise TypeError, "Operator arguments not List: #{types}" unless valid_types
-
-				unless annotated_lhs.type == annotated_rhs.type
-					raise TypeError, "Operator arguments do not match: #{types}"
-				end
+				TypeChecker.assert annotated_lhs.type, annotated_rhs.type,
+				                   "Operator arguments do not match: #{types}"
 
 				Dhall::TypeAnnotation.new(
 					value: @expr.with(lhs: annotated_lhs, rhs: annotated_rhs),

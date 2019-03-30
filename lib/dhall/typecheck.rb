@@ -500,20 +500,14 @@ module Dhall
 					TypeChecker.for(mtype).annotate(context).type
 				end
 
-				if (bad = kinds.find { |t| !KINDS.include?(t) })
-					raise TypeError, "AnonymousType field kind #{bad} "\
-					                 "not one of #{KINDS}"
-				end
+				TypeChecker.assert (kinds - KINDS), [],
+				                   "AnonymousType field kind not one of #{KINDS}"
 
-				if (bad = kinds.find { |t| t != kinds.first })
-					raise TypeError, "AnonymousType field kind #{bad} "\
-					                 "does not match #{kinds.first}"
-				end
+				TypeChecker.assert kinds, Util::ArrayAllTheSame,
+				                   "AnonymousType field kinds not all the same"
 
-				Dhall::TypeAnnotation.new(
-					value: @type,
-					type:  kinds.first || KINDS.first
-				)
+				type = kinds.first || KINDS.first
+				Dhall::TypeAnnotation.new(value: @type, type: type)
 			end
 		end
 

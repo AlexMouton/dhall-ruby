@@ -35,6 +35,12 @@ module Dhall
 			end
 		end
 
+		module ArrayAllTheSame
+			def self.===(other)
+				Array === other && other.all? { |x| x == other.first }
+			end
+		end
+
 		def self.match_results(xs=nil, ys=nil)
 			Array(xs).each_with_index.map do |r, idx|
 				yield r, ys[idx]

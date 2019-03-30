@@ -266,12 +266,23 @@ module Dhall
 		include Enumerable
 
 		include(ValueSemantics.for_attributes do
-			elements Util::ArrayOf.new(Expression, min: 1)
-			type     Either(nil, Expression), default: nil
+			elements     Util::ArrayOf.new(Expression, min: 1)
+			element_type Either(nil, Expression), default: nil
 		end)
 
-		def self.of(*args)
-			List.new(elements: args)
+		def self.of(*args, type: nil)
+			if args.empty?
+				EmptyList.new(element_type: type)
+			else
+				List.new(elements: args, element_type: type)
+			end
+		end
+
+		def type
+			Dhall::Application.new(
+				function: Dhall::Variable["List"],
+				argument: element_type
+			)
 		end
 
 		def as_json
@@ -279,7 +290,7 @@ module Dhall
 		end
 
 		def map(type: nil, &block)
-			with(elements: elements.each_with_index.map(&block), type: type)
+			with(elements: elements.each_with_index.map(&block), element_type: type)
 		end
 
 		def each(&block)
@@ -296,11 +307,11 @@ module Dhall
 		end
 
 		def first
-			Optional.for(elements.first, type: type)
+			Optional.for(elements.first, type: element_type)
 		end
 
 		def last
-			Optional.for(elements.last, type: type)
+			Optional.for(elements.last, type: element_type)
 		end
 
 		def reverse
@@ -318,15 +329,15 @@ module Dhall
 
 	class EmptyList < List
 		include(ValueSemantics.for_attributes do
-			type Either(nil, Expression)
+			element_type Either(nil, Expression)
 		end)
 
 		def as_json
-			[4, type.as_json]
+			[4, element_type.as_json]
 		end
 
 		def map(type: nil)
-			type.nil? ? self : with(type: type)
+			type.nil? ? self : with(element_type: type)
 		end
 
 		def each
@@ -342,11 +353,11 @@ module Dhall
 		end
 
 		def first
-			OptionalNone.new(type: type)
+			OptionalNone.new(value_type: type)
 		end
 
 		def last
-			OptionalNone.new(type: type)
+			OptionalNone.new(value_type: type)
 		end
 
 		def reverse
@@ -366,7 +377,7 @@ module Dhall
 
 		def self.for(value, type: nil)
 			if value.nil?
-				OptionalNone.new(value_type: value_type)
+				OptionalNone.new(value_type: type)
 			else
 				Optional.new(value: value, value_type: type)
 			end

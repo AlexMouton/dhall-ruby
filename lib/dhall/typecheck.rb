@@ -11,6 +11,12 @@ module Dhall
 			end
 		end
 
+		def self.assert_type(expr, assertion, message, context:)
+			unless assertion === self.for(expr).annotate(context).type
+				raise TypeError, message
+			end
+		end
+
 		def self.for(expr)
 			case expr
 			when Dhall::Variable
@@ -385,18 +391,11 @@ module Dhall
 			end
 
 			def annotate(context)
-				type_type = TypeChecker.for(@expr.type).annotate(context).type
-				if type_type != Dhall::Variable["Type"]
-					raise TypeError, "EmptyList element type not of type Type"
-				end
+				TypeChecker.assert_type @expr.element_type, Dhall::Variable["Type"],
+				                        "EmptyList element type not of type Type",
+				                        context: context
 
-				Dhall::TypeAnnotation.new(
-					value: @expr,
-					type:  Dhall::Application.new(
-						function: Dhall::Variable["List"],
-						argument: @expr.type
-					)
-				)
+				@expr
 			end
 		end
 
@@ -405,28 +404,37 @@ module Dhall
 				@list = list
 			end
 
+			class AnnotatedList
+				def initialize(alist)
+					@alist = alist
+				end
+
+				def list
+					@alist.with(element_type: element_type)
+				end
+
+				def element_type
+					@alist.first.value&.type || @alist.element_type
+				end
+
+				def element_types
+					@alist.to_a.map(&:type)
+				end
+			end
+
 			def annotate(context)
-				alist = @list.map(type: @list.type) do |el|
+				alist = AnnotatedList.new(@list.map(type: @list.element_type) { |el|
 					TypeChecker.for(el).annotate(context)
-				end
-				list = alist.with(type: alist.first.value.type)
+				})
 
-				if (bad = alist.find { |x| x.type != list.type })
-					raise TypeError, "List #{list.type} with element #{bad}"
-				end
+				TypeChecker.assert alist.element_types,
+				                   Util::ArrayOf.new(alist.element_type),
+				                   "Non-homogenous List"
 
-				type_type = TypeChecker.for(list.type).annotate(context).type
-				if type_type != Dhall::Variable["Type"]
-					raise TypeError, "List type no of type Type, was: #{type_type}"
-				end
+				TypeChecker.assert_type alist.element_type, Dhall::Variable["Type"],
+				                        "List type not of type Type", context: context
 
-				Dhall::TypeAnnotation.new(
-					value: list,
-					type:  Dhall::Application.new(
-						function: Dhall::Variable["List"],
-						argument: list.type
-					)
-				)
+				alist.list
 			end
 		end
 

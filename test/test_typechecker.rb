@@ -40,11 +40,15 @@ class TestTypechecker < Minitest::Test
 		end
 	end
 
+	def forall(var, type)
+		Dhall::Forall.new(var: var, type: type, body: Dhall::Variable["UNKNOWN"])
+	end
+
 	def test_variable_in_context
 		context =
 			Dhall::TypeChecker::Context.new
-				.add("x", Dhall::Variable["Type"])
-				.add("x", Dhall::Variable["Kind"])
+				.add(forall("x", Dhall::Variable["Type"]))
+				.add(forall("x", Dhall::Variable["Kind"]))
 
 		assert_equal(
 			Dhall::Variable["Kind"],
@@ -57,8 +61,8 @@ class TestTypechecker < Minitest::Test
 	def test_variable_in_parent_context
 		context =
 			Dhall::TypeChecker::Context.new
-				.add("x", Dhall::Variable["Type"])
-				.add("x", Dhall::Variable["Kind"])
+				.add(forall("x", Dhall::Variable["Type"]))
+				.add(forall("x", Dhall::Variable["Kind"]))
 
 		assert_equal(
 			Dhall::Variable["Type"],

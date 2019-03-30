@@ -89,10 +89,10 @@ module Dhall
 					(raise TypeError, "Free variable: #{var}")
 			end
 
-			def add(name, type)
+			def add(ftype)
 				self.class.new(@bindings.merge(
-					name => [type] + @bindings[name]
-				))
+					ftype.var => [ftype.type] + @bindings[ftype.var]
+				)).shift(1, ftype.var, 0)
 			end
 
 			def shift(amount, name, min_index)
@@ -780,9 +780,7 @@ module Dhall
 
 			def annotate(context)
 				inkind = KINDS.index(@input.annotate(context).type)
-				outkind = KINDS.index(@output.annotate(
-					context.add(@var, @var_type).shift(1, @var, 0)
-				).type)
+				outkind = KINDS.index(@output.annotate(context.add(@expr)).type)
 
 				Dhall::TypeAnnotation.new(
 					value: @expr,
@@ -794,26 +792,22 @@ module Dhall
 		class Function
 			def initialize(func)
 				@func = func
+				@type = Dhall::Forall.new(
+					var:  func.var,
+					type: func.type,
+					body: Dhall::Variable["UNKNOWN"]
+				)
 				@output = TypeChecker.for(func.body)
 			end
 
 			def annotate(context)
-				abody = @output.annotate(
-					context.add(@func.var, @func.type).shift(1, @func.var, 0)
-				)
-
-				type = Dhall::Forall.new(
-					var:  @func.var,
-					type: @func.type,
-					body: abody.type
-				)
-
-				# Annotate to sanity check
-				TypeChecker.for(type).annotate(context)
+				abody = @output.annotate(context.add(@type))
 
 				Dhall::TypeAnnotation.new(
 					value: @func.with(body: abody),
-					type:  type
+					type:  TypeChecker.for(
+						@type.with(body: abody.type)
+					).annotate(context).value
 				)
 			end
 		end

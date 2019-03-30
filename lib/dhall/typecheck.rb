@@ -6,15 +6,22 @@ require "dhall/normalize"
 module Dhall
 	module TypeChecker
 		def self.assert(type, assertion, message)
-			unless assertion === type
-				raise TypeError, message
-			end
+			raise TypeError, message unless assertion === type
+			type
 		end
 
 		def self.assert_type(expr, assertion, message, context:)
-			unless assertion === self.for(expr).annotate(context).type
-				raise TypeError, message
-			end
+			aexpr = self.for(expr).annotate(context)
+			type = aexpr.type
+			raise TypeError, "#{message}: #{type}" unless assertion === type
+			aexpr
+		end
+
+		def self.assert_types_match(a, b, message, context:)
+			atype = self.for(a).annotate(context).type
+			btype = self.for(b).annotate(context).type
+			raise TypeError, "#{message}: #{atype}, #{btype}" unless atype == btype
+			atype
 		end
 
 		def self.for(expr)
@@ -317,38 +324,32 @@ module Dhall
 		class OperatorRightBiasedRecordMerge
 			def initialize(expr)
 				@expr = expr
-				@lhs = TypeChecker.for(expr.lhs)
-				@rhs = TypeChecker.for(expr.rhs)
+			end
+
+			def check(context)
+				annotated_lhs = TypeChecker.assert_type @expr.lhs, Dhall::RecordType,
+				                                        "RecursiveRecordMerge got",
+				                                        context: context
+
+				annotated_rhs = TypeChecker.assert_type @expr.rhs, Dhall::RecordType,
+				                                        "RecursiveRecordMerge got",
+				                                        context: context
+
+				TypeChecker.assert_types_match annotated_lhs.type, annotated_rhs.type,
+				                               "RecursiveRecordMerge got mixed kinds",
+				                               context: context
+
+				[annotated_lhs, annotated_rhs]
 			end
 
 			def annotate(context)
-				annotated_lhs = @lhs.annotate(context)
-				annotated_rhs = @rhs.annotate(context)
-
-				unless annotated_lhs.type.is_a?(Dhall::RecordType)
-					raise TypeError, "RecursiveRecordMerge got #{annotated_lhs.type}"
-				end
-
-				unless annotated_rhs.type.is_a?(Dhall::RecordType)
-					raise TypeError, "RecursiveRecordMerge got #{annotated_rhs.type}"
-				end
-
-				lkind = TypeChecker.for(annotated_lhs.type).annotate(context).type
-				rkind = TypeChecker.for(annotated_rhs.type).annotate(context).type
-
-				if lkind != rkind
-					raise TypeError, "RecursiveRecordMerge got mixed kinds: " \
-										  "#{lkind}, #{rkind}"
-				end
-
-				type = annotated_lhs.type.merge_type(annotated_rhs.type)
-
-				# Annotate to sanity check
-				TypeChecker.for(type).annotate(context)
+				annotated_lhs, annotated_rhs = check(context)
 
 				Dhall::TypeAnnotation.new(
 					value: @expr.with(lhs: annotated_lhs, rhs: annotated_rhs),
-					type:  type
+					type:  TypeChecker.for(
+						annotated_lhs.type.merge_type(annotated_rhs.type)
+					).annotate(context).value
 				)
 			end
 		end
@@ -356,17 +357,14 @@ module Dhall
 		class OperatorRecursiveRecordTypeMerge
 			def initialize(expr)
 				@expr = expr
-				@lhs = TypeChecker.for(expr.lhs)
-				@rhs = TypeChecker.for(expr.rhs)
 			end
 
 			def annotate(context)
-				lhs_kind = @lhs.annotate(context).type
-				rhs_kind = @rhs.annotate(context).type
-
-				TypeChecker.assert lhs_kind, rhs_kind,
-				                   "RecursiveRecordTypeMerge mixed kinds: " \
-				                   "#{lhs_kind}, #{rhs_kind}"
+				kind = TypeChecker.assert_types_match(
+					@expr.lhs, @expr.rhs,
+					"RecursiveRecordTypeMerge mixed kinds",
+					context: context
+				)
 
 				type = @expr.lhs.deep_merge_type(@expr.rhs)
 
@@ -376,7 +374,7 @@ module Dhall
 				# Annotate to sanity check
 				TypeChecker.for(type).annotate(context)
 
-				Dhall::TypeAnnotation.new(value: @expr, type: lhs_kind)
+				Dhall::TypeAnnotation.new(value: @expr, type: kind)
 			end
 		end
 

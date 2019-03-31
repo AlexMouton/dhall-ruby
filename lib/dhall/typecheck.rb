@@ -25,70 +25,19 @@ module Dhall
 		end
 
 		def self.for(expr)
-			case expr
-			when Dhall::Variable
-				Variable.new(expr)
-			when Dhall::Bool, Dhall::Natural, Dhall::Text, Dhall::Integer,
-			     Dhall::Double
-				Literal.new(expr)
-			when Dhall::TextLiteral
-				TextLiteral.new(expr)
-			when Dhall::EmptyList
-				EmptyList.new(expr)
-			when Dhall::List
-				List.new(expr)
-			when Dhall::OptionalNone
-				OptionalNone.new(expr)
-			when Dhall::Optional
-				Optional.new(expr)
-			when Dhall::If
-				If.new(expr)
-			when Dhall::Application
-				Application.new(expr)
-			when Dhall::Operator::And, Dhall::Operator::Or,
-			     Dhall::Operator::Equal, Dhall::Operator::NotEqual
-				Operator.new(expr, Dhall::Variable["Bool"])
-			when Dhall::Operator::Plus, Dhall::Operator::Times
-				Operator.new(expr, Dhall::Variable["Natural"])
-			when Dhall::Operator::TextConcatenate
-				Operator.new(expr, Dhall::Variable["Text"])
-			when Dhall::Operator::ListConcatenate
-				OperatorListConcatenate.new(expr)
-			when Dhall::Operator::RecursiveRecordMerge
-				OperatorRecursiveRecordMerge.new(expr)
-			when Dhall::Operator::RightBiasedRecordMerge
-				OperatorRightBiasedRecordMerge.new(expr)
-			when Dhall::Operator::RecursiveRecordTypeMerge
-				OperatorRecursiveRecordTypeMerge.new(expr)
-			when Dhall::EmptyRecordType
-				EmptyAnonymousType.new(expr)
-			when Dhall::RecordType, Dhall::UnionType
-				AnonymousType.new(expr)
-			when Dhall::EmptyRecord
-				EmptyRecord.new(expr)
-			when Dhall::Record
-				Record.new(expr)
-			when Dhall::RecordSelection
-				RecordSelection.new(expr)
-			when Dhall::RecordProjection, Dhall::EmptyRecordProjection
-				RecordProjection.new(expr)
-			when Dhall::Union
-				Union.new(expr)
-			when Dhall::Merge
-				Merge.new(expr)
-			when Dhall::Forall
-				Forall.new(expr)
-			when Dhall::Function
-				Function.new(expr)
-			when Dhall::LetBlock
-				LetBlock.for(expr)
-			when Dhall::TypeAnnotation
-				TypeAnnotation.new(expr)
-			when Dhall::Builtin
-				Builtin.new(expr)
-			else
-				raise TypeError, "Unknown expression: #{expr}"
+			@typecheckers.each do |node_matcher, (typechecker, extras)|
+				if node_matcher === expr
+					msg = [:call, :for, :new].find { |m| typechecker.respond_to?(m) }
+					return typechecker.public_send(msg, expr, *extras)
+				end
 			end
+
+			raise TypeError, "Unknown expression: #{expr}"
+		end
+
+		def self.register(typechecker, node_type, *extras)
+			@typecheckers ||= {}
+			@typecheckers[node_type] ||= [typechecker, extras]
 		end
 
 		class Context
@@ -124,6 +73,8 @@ module Dhall
 		].freeze
 
 		class Variable
+			TypeChecker.register self, Dhall::Variable
+
 			def initialize(var)
 				@var = var
 			end
@@ -165,6 +116,12 @@ module Dhall
 		end
 
 		class Literal
+			TypeChecker.register self, Dhall::Bool
+			TypeChecker.register self, Dhall::Natural
+			TypeChecker.register self, Dhall::Text
+			TypeChecker.register self, Dhall::Integer
+			TypeChecker.register self, Dhall::Double
+
 			def initialize(lit)
 				@lit = lit
 				@type = Dhall::Variable[lit.class.name.split(/::/).last]
@@ -179,6 +136,8 @@ module Dhall
 		end
 
 		class TextLiteral
+			TypeChecker.register self, Dhall::TextLiteral
+
 			def initialize(lit)
 				@lit = lit
 			end
@@ -219,6 +178,8 @@ module Dhall
 		end
 
 		class If
+			TypeChecker.register self, Dhall::If
+
 			def initialize(expr)
 				@expr = expr
 				@predicate = TypeChecker.for(expr.predicate)
@@ -258,6 +219,18 @@ module Dhall
 		end
 
 		class Operator
+			{
+				Dhall::Operator::And             => Dhall::Variable["Bool"],
+				Dhall::Operator::Or              => Dhall::Variable["Bool"],
+				Dhall::Operator::Equal           => Dhall::Variable["Bool"],
+				Dhall::Operator::NotEqual        => Dhall::Variable["Bool"],
+				Dhall::Operator::Plus            => Dhall::Variable["Natural"],
+				Dhall::Operator::Times           => Dhall::Variable["Natural"],
+				Dhall::Operator::TextConcatenate => Dhall::Variable["Text"]
+			}.each do |node_type, type|
+				TypeChecker.register self, node_type, type
+			end
+
 			def initialize(expr, type)
 				@expr = expr
 				@lhs = TypeChecker.for(expr.lhs)
@@ -281,6 +254,8 @@ module Dhall
 		end
 
 		class OperatorListConcatenate
+			TypeChecker.register self, Dhall::Operator::ListConcatenate
+
 			def initialize(expr)
 				@expr = expr
 				@lhs = TypeChecker.for(expr.lhs)
@@ -311,6 +286,8 @@ module Dhall
 		end
 
 		class OperatorRecursiveRecordMerge
+			TypeChecker.register self, Dhall::Operator::RecursiveRecordMerge
+
 			def initialize(expr)
 				@expr = expr
 				@lhs = TypeChecker.for(expr.lhs)
@@ -337,6 +314,8 @@ module Dhall
 		end
 
 		class OperatorRightBiasedRecordMerge
+			TypeChecker.register self, Dhall::Operator::RightBiasedRecordMerge
+
 			def initialize(expr)
 				@expr = expr
 			end
@@ -370,6 +349,8 @@ module Dhall
 		end
 
 		class OperatorRecursiveRecordTypeMerge
+			TypeChecker.register self, Dhall::Operator::RecursiveRecordTypeMerge
+
 			def initialize(expr)
 				@expr = expr
 			end
@@ -394,6 +375,8 @@ module Dhall
 		end
 
 		class EmptyList
+			TypeChecker.register self, Dhall::EmptyList
+
 			def initialize(expr)
 				@expr = expr
 			end
@@ -408,6 +391,8 @@ module Dhall
 		end
 
 		class List
+			TypeChecker.register self, Dhall::List
+
 			def initialize(list)
 				@list = list
 			end
@@ -447,6 +432,8 @@ module Dhall
 		end
 
 		class OptionalNone
+			TypeChecker.register self, Dhall::OptionalNone
+
 			def initialize(expr)
 				@expr = expr
 			end
@@ -463,6 +450,8 @@ module Dhall
 		end
 
 		class Optional
+			TypeChecker.register self, Dhall::Optional
+
 			def initialize(some)
 				@some = some
 			end
@@ -482,6 +471,8 @@ module Dhall
 		end
 
 		class EmptyAnonymousType
+			TypeChecker.register self, Dhall::EmptyRecordType
+
 			def initialize(expr)
 				@expr = expr
 			end
@@ -495,6 +486,9 @@ module Dhall
 		end
 
 		class AnonymousType
+			TypeChecker.register self, Dhall::RecordType
+			TypeChecker.register self, Dhall::UnionType
+
 			def initialize(type)
 				@type = type
 			end
@@ -516,6 +510,8 @@ module Dhall
 		end
 
 		class EmptyRecord
+			TypeChecker.register self, Dhall::EmptyRecord
+
 			def initialize(expr)
 				@expr = expr
 			end
@@ -529,6 +525,8 @@ module Dhall
 		end
 
 		class Record
+			TypeChecker.register self, Dhall::Record
+
 			def initialize(record)
 				@record = record
 			end
@@ -548,6 +546,8 @@ module Dhall
 		end
 
 		class RecordSelection
+			TypeChecker.register self, Dhall::RecordSelection
+
 			def initialize(selection)
 				@selection = selection
 				@record = selection.record
@@ -597,6 +597,9 @@ module Dhall
 		end
 
 		class RecordProjection
+			TypeChecker.register self, Dhall::EmptyRecordProjection
+			TypeChecker.register self, Dhall::RecordProjection
+
 			def initialize(projection)
 				@projection = projection
 				@record = TypeChecker.for(projection.record)
@@ -621,6 +624,8 @@ module Dhall
 		end
 
 		class Union
+			TypeChecker.register self, Dhall::Union
+
 			def initialize(union)
 				@union = union
 				@value = TypeChecker.for(union.value)
@@ -644,6 +649,8 @@ module Dhall
 		end
 
 		class Merge
+			TypeChecker.register self, Dhall::Merge
+
 			def initialize(merge)
 				@merge = merge
 				@record = TypeChecker.for(merge.record)
@@ -747,6 +754,8 @@ module Dhall
 		end
 
 		class Forall
+			TypeChecker.register self, Dhall::Forall
+
 			def initialize(expr)
 				@expr = expr
 				@var = expr.var
@@ -800,6 +809,8 @@ module Dhall
 		end
 
 		class Function
+			TypeChecker.register self, Dhall::Function
+
 			def initialize(func)
 				@func = func
 				@type = Dhall::Forall.new(
@@ -823,6 +834,8 @@ module Dhall
 		end
 
 		class Application
+			TypeChecker.register self, Dhall::Application
+
 			def initialize(app)
 				@app = app
 				@func = TypeChecker.for(app.function)
@@ -847,6 +860,8 @@ module Dhall
 		end
 
 		class LetBlock
+			TypeChecker.register self, Dhall::LetBlock
+
 			def self.for(letblock)
 				if letblock.lets.first.type
 					LetBlockAnnotated.new(letblock)
@@ -891,6 +906,8 @@ module Dhall
 		end
 
 		class TypeAnnotation
+			TypeChecker.register self, Dhall::TypeAnnotation
+
 			def initialize(expr)
 				@expr = expr
 			end
@@ -907,271 +924,273 @@ module Dhall
 			end
 		end
 
+		BUILTIN_TYPES = {
+			"Natural/build"     => Dhall::Forall.of_arguments(
+				Dhall::Forall.new(
+					var:  "natural",
+					type: Dhall::Variable["Type"],
+					body: Dhall::Forall.new(
+						var:  "succ",
+						type: Dhall::Forall.of_arguments(
+							Dhall::Variable["natural"],
+							body: Dhall::Variable["natural"]
+						),
+						body: Dhall::Forall.new(
+							var:  "zero",
+							type: Dhall::Variable["natural"],
+							body: Dhall::Variable["natural"]
+						)
+					)
+				),
+				body: Dhall::Variable["Natural"]
+			),
+			"Natural/fold"      => Dhall::Forall.of_arguments(
+				Dhall::Variable["Natural"],
+				body: Dhall::Forall.new(
+					var:  "natural",
+					type: Dhall::Variable["Type"],
+					body: Dhall::Forall.new(
+						var:  "succ",
+						type: Dhall::Forall.of_arguments(
+							Dhall::Variable["natural"],
+							body: Dhall::Variable["natural"]
+						),
+						body: Dhall::Forall.new(
+							var:  "zero",
+							type: Dhall::Variable["natural"],
+							body: Dhall::Variable["natural"]
+						)
+					)
+				)
+			),
+			"Natural/isZero"    => Dhall::Forall.of_arguments(
+				Dhall::Variable["Natural"],
+				body: Dhall::Variable["Bool"]
+			),
+			"Natural/even"      => Dhall::Forall.of_arguments(
+				Dhall::Variable["Natural"],
+				body: Dhall::Variable["Bool"]
+			),
+			"Natural/odd"       => Dhall::Forall.of_arguments(
+				Dhall::Variable["Natural"],
+				body: Dhall::Variable["Bool"]
+			),
+			"Natural/toInteger" => Dhall::Forall.of_arguments(
+				Dhall::Variable["Natural"],
+				body: Dhall::Variable["Integer"]
+			),
+			"Natural/show"      => Dhall::Forall.of_arguments(
+				Dhall::Variable["Natural"],
+				body: Dhall::Variable["Text"]
+			),
+			"Text/show"         => Dhall::Forall.of_arguments(
+				Dhall::Variable["Text"],
+				body: Dhall::Variable["Text"]
+			),
+			"List/build"        => Dhall::Forall.new(
+				var:  "a",
+				type: Dhall::Variable["Type"],
+				body: Dhall::Forall.of_arguments(
+					Dhall::Forall.new(
+						var:  "list",
+						type: Dhall::Variable["Type"],
+						body: Dhall::Forall.new(
+							var:  "cons",
+							type: Dhall::Forall.of_arguments(
+								Dhall::Variable["a"],
+								Dhall::Variable["list"],
+								body: Dhall::Variable["list"]
+							),
+							body: Dhall::Forall.new(
+								var:  "nil",
+								type: Dhall::Variable["list"],
+								body: Dhall::Variable["list"]
+							)
+						)
+					),
+					body: Dhall::Application.new(
+						function: Dhall::Variable["List"],
+						argument: Dhall::Variable["a"]
+					)
+				)
+			),
+			"List/fold"         => Dhall::Forall.new(
+				var:  "a",
+				type: Dhall::Variable["Type"],
+				body: Dhall::Forall.of_arguments(
+					Dhall::Application.new(
+						function: Dhall::Variable["List"],
+						argument: Dhall::Variable["a"]
+					),
+					body: Dhall::Forall.new(
+						var:  "list",
+						type: Dhall::Variable["Type"],
+						body: Dhall::Forall.new(
+							var:  "cons",
+							type: Dhall::Forall.of_arguments(
+								Dhall::Variable["a"],
+								Dhall::Variable["list"],
+								body: Dhall::Variable["list"]
+							),
+							body: Dhall::Forall.new(
+								var:  "nil",
+								type: Dhall::Variable["list"],
+								body: Dhall::Variable["list"]
+							)
+						)
+					)
+				)
+			),
+			"List/length"       => Dhall::Forall.new(
+				var:  "a",
+				type: Dhall::Variable["Type"],
+				body: Dhall::Forall.of_arguments(
+					Dhall::Application.new(
+						function: Dhall::Variable["List"],
+						argument: Dhall::Variable["a"]
+					),
+					body: Dhall::Variable["Natural"]
+				)
+			),
+			"List/head"         => Dhall::Forall.new(
+				var:  "a",
+				type: Dhall::Variable["Type"],
+				body: Dhall::Forall.of_arguments(
+					Dhall::Application.new(
+						function: Dhall::Variable["List"],
+						argument: Dhall::Variable["a"]
+					),
+					body: Dhall::Application.new(
+						function: Dhall::Variable["Optional"],
+						argument: Dhall::Variable["a"]
+					)
+				)
+			),
+			"List/last"         => Dhall::Forall.new(
+				var:  "a",
+				type: Dhall::Variable["Type"],
+				body: Dhall::Forall.of_arguments(
+					Dhall::Application.new(
+						function: Dhall::Variable["List"],
+						argument: Dhall::Variable["a"]
+					),
+					body: Dhall::Application.new(
+						function: Dhall::Variable["Optional"],
+						argument: Dhall::Variable["a"]
+					)
+				)
+			),
+			"List/indexed"      => Dhall::Forall.new(
+				var:  "a",
+				type: Dhall::Variable["Type"],
+				body: Dhall::Forall.of_arguments(
+					Dhall::Application.new(
+						function: Dhall::Variable["List"],
+						argument: Dhall::Variable["a"]
+					),
+					body: Dhall::Application.new(
+						function: Dhall::Variable["List"],
+						argument: Dhall::RecordType.new(
+							record: {
+								"index" => Dhall::Variable["Natural"],
+								"value" => Dhall::Variable["a"]
+							}
+						)
+					)
+				)
+			),
+			"List/reverse"      => Dhall::Forall.new(
+				var:  "a",
+				type: Dhall::Variable["Type"],
+				body: Dhall::Forall.of_arguments(
+					Dhall::Application.new(
+						function: Dhall::Variable["List"],
+						argument: Dhall::Variable["a"]
+					),
+					body: Dhall::Application.new(
+						function: Dhall::Variable["List"],
+						argument: Dhall::Variable["a"]
+					)
+				)
+			),
+			"Optional/fold"     => Dhall::Forall.new(
+				var:  "a",
+				type: Dhall::Variable["Type"],
+				body: Dhall::Forall.of_arguments(
+					Dhall::Application.new(
+						function: Dhall::Variable["Optional"],
+						argument: Dhall::Variable["a"]
+					),
+					body: Dhall::Forall.new(
+						var:  "optional",
+						type: Dhall::Variable["Type"],
+						body: Dhall::Forall.new(
+							var:  "just",
+							type: Dhall::Forall.of_arguments(
+								Dhall::Variable["a"],
+								body: Dhall::Variable["optional"]
+							),
+							body: Dhall::Forall.new(
+								var:  "nothing",
+								type: Dhall::Variable["optional"],
+								body: Dhall::Variable["optional"]
+							)
+						)
+					)
+				)
+			),
+			"Optional/build"    => Dhall::Forall.new(
+				var:  "a",
+				type: Dhall::Variable["Type"],
+				body: Dhall::Forall.of_arguments(
+					Dhall::Forall.new(
+						var:  "optional",
+						type: Dhall::Variable["Type"],
+						body: Dhall::Forall.new(
+							var:  "just",
+							type: Dhall::Forall.of_arguments(
+								Dhall::Variable["a"],
+								body: Dhall::Variable["optional"]
+							),
+							body: Dhall::Forall.new(
+								var:  "nothing",
+								type: Dhall::Variable["optional"],
+								body: Dhall::Variable["optional"]
+							)
+						)
+					),
+					body: Dhall::Application.new(
+						function: Dhall::Variable["Optional"],
+						argument: Dhall::Variable["a"]
+					)
+				)
+			),
+			"Integer/show"      => Dhall::Forall.of_arguments(
+				Dhall::Variable["Integer"],
+				body: Dhall::Variable["Text"]
+			),
+			"Integer/toDouble"  => Dhall::Forall.of_arguments(
+				Dhall::Variable["Integer"],
+				body: Dhall::Variable["Double"]
+			),
+			"Double/show"       => Dhall::Forall.of_arguments(
+				Dhall::Variable["Double"],
+				body: Dhall::Variable["Text"]
+			)
+		}.freeze
+
 		class Builtin
+			TypeChecker.register self, Dhall::Builtin
+
 			def initialize(builtin)
 				@expr = builtin
 				@name = builtin.as_json
 			end
 
-			TYPES = {
-				"Natural/build"     => Dhall::Forall.of_arguments(
-					Dhall::Forall.new(
-						var:  "natural",
-						type: Dhall::Variable["Type"],
-						body: Dhall::Forall.new(
-							var:  "succ",
-							type: Dhall::Forall.of_arguments(
-								Dhall::Variable["natural"],
-								body: Dhall::Variable["natural"]
-							),
-							body: Dhall::Forall.new(
-								var:  "zero",
-								type: Dhall::Variable["natural"],
-								body: Dhall::Variable["natural"]
-							)
-						)
-					),
-					body: Dhall::Variable["Natural"]
-				),
-				"Natural/fold"      => Dhall::Forall.of_arguments(
-					Dhall::Variable["Natural"],
-					body: Dhall::Forall.new(
-						var:  "natural",
-						type: Dhall::Variable["Type"],
-						body: Dhall::Forall.new(
-							var:  "succ",
-							type: Dhall::Forall.of_arguments(
-								Dhall::Variable["natural"],
-								body: Dhall::Variable["natural"]
-							),
-							body: Dhall::Forall.new(
-								var:  "zero",
-								type: Dhall::Variable["natural"],
-								body: Dhall::Variable["natural"]
-							)
-						)
-					)
-				),
-				"Natural/isZero"    => Dhall::Forall.of_arguments(
-					Dhall::Variable["Natural"],
-					body: Dhall::Variable["Bool"]
-				),
-				"Natural/even"      => Dhall::Forall.of_arguments(
-					Dhall::Variable["Natural"],
-					body: Dhall::Variable["Bool"]
-				),
-				"Natural/odd"       => Dhall::Forall.of_arguments(
-					Dhall::Variable["Natural"],
-					body: Dhall::Variable["Bool"]
-				),
-				"Natural/toInteger" => Dhall::Forall.of_arguments(
-					Dhall::Variable["Natural"],
-					body: Dhall::Variable["Integer"]
-				),
-				"Natural/show"      => Dhall::Forall.of_arguments(
-					Dhall::Variable["Natural"],
-					body: Dhall::Variable["Text"]
-				),
-				"Text/show"         => Dhall::Forall.of_arguments(
-					Dhall::Variable["Text"],
-					body: Dhall::Variable["Text"]
-				),
-				"List/build"        => Dhall::Forall.new(
-					var:  "a",
-					type: Dhall::Variable["Type"],
-					body: Dhall::Forall.of_arguments(
-						Dhall::Forall.new(
-							var:  "list",
-							type: Dhall::Variable["Type"],
-							body: Dhall::Forall.new(
-								var:  "cons",
-								type: Dhall::Forall.of_arguments(
-									Dhall::Variable["a"],
-									Dhall::Variable["list"],
-									body: Dhall::Variable["list"]
-								),
-								body: Dhall::Forall.new(
-									var:  "nil",
-									type: Dhall::Variable["list"],
-									body: Dhall::Variable["list"]
-								)
-							)
-						),
-						body: Dhall::Application.new(
-							function: Dhall::Variable["List"],
-							argument: Dhall::Variable["a"]
-						)
-					)
-				),
-				"List/fold"         => Dhall::Forall.new(
-					var:  "a",
-					type: Dhall::Variable["Type"],
-					body: Dhall::Forall.of_arguments(
-						Dhall::Application.new(
-							function: Dhall::Variable["List"],
-							argument: Dhall::Variable["a"]
-						),
-						body: Dhall::Forall.new(
-							var:  "list",
-							type: Dhall::Variable["Type"],
-							body: Dhall::Forall.new(
-								var:  "cons",
-								type: Dhall::Forall.of_arguments(
-									Dhall::Variable["a"],
-									Dhall::Variable["list"],
-									body: Dhall::Variable["list"]
-								),
-								body: Dhall::Forall.new(
-									var:  "nil",
-									type: Dhall::Variable["list"],
-									body: Dhall::Variable["list"]
-								)
-							)
-						)
-					)
-				),
-				"List/length"       => Dhall::Forall.new(
-					var:  "a",
-					type: Dhall::Variable["Type"],
-					body: Dhall::Forall.of_arguments(
-						Dhall::Application.new(
-							function: Dhall::Variable["List"],
-							argument: Dhall::Variable["a"]
-						),
-						body: Dhall::Variable["Natural"]
-					)
-				),
-				"List/head"         => Dhall::Forall.new(
-					var:  "a",
-					type: Dhall::Variable["Type"],
-					body: Dhall::Forall.of_arguments(
-						Dhall::Application.new(
-							function: Dhall::Variable["List"],
-							argument: Dhall::Variable["a"]
-						),
-						body: Dhall::Application.new(
-							function: Dhall::Variable["Optional"],
-							argument: Dhall::Variable["a"]
-						)
-					)
-				),
-				"List/last"         => Dhall::Forall.new(
-					var:  "a",
-					type: Dhall::Variable["Type"],
-					body: Dhall::Forall.of_arguments(
-						Dhall::Application.new(
-							function: Dhall::Variable["List"],
-							argument: Dhall::Variable["a"]
-						),
-						body: Dhall::Application.new(
-							function: Dhall::Variable["Optional"],
-							argument: Dhall::Variable["a"]
-						)
-					)
-				),
-				"List/indexed"      => Dhall::Forall.new(
-					var:  "a",
-					type: Dhall::Variable["Type"],
-					body: Dhall::Forall.of_arguments(
-						Dhall::Application.new(
-							function: Dhall::Variable["List"],
-							argument: Dhall::Variable["a"]
-						),
-						body: Dhall::Application.new(
-							function: Dhall::Variable["List"],
-							argument: Dhall::RecordType.new(
-								record: {
-									"index" => Dhall::Variable["Natural"],
-									"value" => Dhall::Variable["a"]
-								}
-							)
-						)
-					)
-				),
-				"List/reverse"      => Dhall::Forall.new(
-					var:  "a",
-					type: Dhall::Variable["Type"],
-					body: Dhall::Forall.of_arguments(
-						Dhall::Application.new(
-							function: Dhall::Variable["List"],
-							argument: Dhall::Variable["a"]
-						),
-						body: Dhall::Application.new(
-							function: Dhall::Variable["List"],
-							argument: Dhall::Variable["a"]
-						)
-					)
-				),
-				"Optional/fold"     => Dhall::Forall.new(
-					var:  "a",
-					type: Dhall::Variable["Type"],
-					body: Dhall::Forall.of_arguments(
-						Dhall::Application.new(
-							function: Dhall::Variable["Optional"],
-							argument: Dhall::Variable["a"]
-						),
-						body: Dhall::Forall.new(
-							var:  "optional",
-							type: Dhall::Variable["Type"],
-							body: Dhall::Forall.new(
-								var:  "just",
-								type: Dhall::Forall.of_arguments(
-									Dhall::Variable["a"],
-									body: Dhall::Variable["optional"]
-								),
-								body: Dhall::Forall.new(
-									var:  "nothing",
-									type: Dhall::Variable["optional"],
-									body: Dhall::Variable["optional"]
-								)
-							)
-						)
-					)
-				),
-				"Optional/build"    => Dhall::Forall.new(
-					var:  "a",
-					type: Dhall::Variable["Type"],
-					body: Dhall::Forall.of_arguments(
-						Dhall::Forall.new(
-							var:  "optional",
-							type: Dhall::Variable["Type"],
-							body: Dhall::Forall.new(
-								var:  "just",
-								type: Dhall::Forall.of_arguments(
-									Dhall::Variable["a"],
-									body: Dhall::Variable["optional"]
-								),
-								body: Dhall::Forall.new(
-									var:  "nothing",
-									type: Dhall::Variable["optional"],
-									body: Dhall::Variable["optional"]
-								)
-							)
-						),
-						body: Dhall::Application.new(
-							function: Dhall::Variable["Optional"],
-							argument: Dhall::Variable["a"]
-						)
-					)
-				),
-				"Integer/show"      => Dhall::Forall.of_arguments(
-					Dhall::Variable["Integer"],
-					body: Dhall::Variable["Text"]
-				),
-				"Integer/toDouble"  => Dhall::Forall.of_arguments(
-					Dhall::Variable["Integer"],
-					body: Dhall::Variable["Double"]
-				),
-				"Double/show"       => Dhall::Forall.of_arguments(
-					Dhall::Variable["Double"],
-					body: Dhall::Variable["Text"]
-				)
-			}.freeze
-
 			def annotate(*)
 				Dhall::TypeAnnotation.new(
 					value: @expr,
-					type:  TYPES.fetch(@name) do
+					type:  BUILTIN_TYPES.fetch(@name) do
 						raise TypeError, "Unknown Builtin #{@name}"
 					end
 				)

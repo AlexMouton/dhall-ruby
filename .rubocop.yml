@@ -12,6 +12,9 @@ Metrics/ClassLength:
   Exclude:
     - test/*
 
+Metrics/ModuleLength:
+  Enabled: false
+
 Layout/AlignHash:
   EnforcedHashRocketStyle: table
   EnforcedColonStyle: table

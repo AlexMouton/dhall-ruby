@@ -212,33 +212,34 @@ module Dhall
 				@else = TypeChecker.for(expr.else)
 			end
 
-			def annotate(context)
-				annotated_predicate = @predicate.annotate(context)
-				if annotated_predicate.type != Dhall::Variable["Bool"]
-					raise TypeError, "If must have a predicate of type Bool"
+			class AnnotatedIf
+				def initialize(expr, apred, athen, aelse, context:)
+					TypeChecker.assert apred.type, Dhall::Variable["Bool"],
+					                   "If must have a predicate of type Bool"
+					TypeChecker.assert_type athen.type, Dhall::Variable["Type"],
+					                        "If branches must have types of type Type",
+					                        context: context
+					TypeChecker.assert aelse.type, athen.type,
+					                   "If branches have mismatched types"
+					@expr = expr.with(predicate: apred, then: athen, else: aelse)
 				end
 
-				annotated_then = @then.annotate(context)
-				then_type_type = TypeChecker.for(annotated_then.type)
-				                            .annotate(context).type
-				if then_type_type != Dhall::Variable["Type"]
-					raise TypeError, "If branches must have types of type Type"
-				end
-
-				annotated_else = @else.annotate(context)
-				if annotated_then.type == annotated_else.type
+				def annotation
 					Dhall::TypeAnnotation.new(
-						value: @expr.with(
-							predicate: annotated_predicate,
-							then:      annotated_then,
-							else:      annotated_else
-						),
-						type:  annotated_then.type
+						value: @expr,
+						type:  @expr.then.type
 					)
-				else
-					raise TypeError, "If branches have mismatched types: " \
-					                 "#{annotated_then.type}, #{annotated_else.type}"
 				end
+			end
+
+			def annotate(context)
+				AnnotatedIf.new(
+					@expr,
+					@predicate.annotate(context),
+					@then.annotate(context),
+					@else.annotate(context),
+					context: context
+				).annotation
 			end
 		end
 

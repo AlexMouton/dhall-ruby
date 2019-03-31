@@ -183,19 +183,33 @@ module Dhall
 				@lit = lit
 			end
 
-			def annotate(context)
-				chunks = @lit.chunks.map do |c|
-					if c.is_a?(Dhall::Text)
-						c
-					else
-						annotated = TypeChecker.for(c).annotate(context)
-						if annotated.type != Dhall::Variable["Text"]
-							raise TypeError, "Cannot interpolate non-Text: " \
-							                 "#{annotated.type}"
-						end
-						annotated
-					end
+			class Chunks
+				def initialize(chunks)
+					@chunks = chunks
 				end
+
+				def map
+					self.class.new(@chunks.map { |c|
+						if c.is_a?(Dhall::Text)
+							c
+						else
+							yield c
+						end
+					})
+				end
+
+				def to_a
+					@chunks
+				end
+			end
+
+			def annotate(context)
+				chunks = Chunks.new(@lit.chunks).map { |c|
+					TypeChecker.for(c).annotate(context).tap do |annotated|
+						TypeChecker.assert annotated.type, Dhall::Variable["Text"],
+						                   "Cannot interpolate #{annotated.type}"
+					end
+				}.to_a
 
 				Dhall::TypeAnnotation.new(
 					value: @lit.with(chunks: chunks),

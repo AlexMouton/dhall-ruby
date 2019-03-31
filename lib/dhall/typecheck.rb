@@ -284,15 +284,13 @@ module Dhall
 				annotated_rhs = @rhs.annotate(context)
 
 				types = [annotated_lhs.type, annotated_rhs.type]
-				TypeChecker.assert types, Util::ArrayOf.new(IsList),
-				                   "Operator arguments not List: #{types}"
-
-				TypeChecker.assert annotated_lhs.type, annotated_rhs.type,
-				                   "Operator arguments do not match: #{types}"
+				assertion = Util::ArrayOf.new(Util::AllOf.new(IsList, types.first))
+				TypeChecker.assert types, assertion,
+				                   "Operator arguments wrong: #{types}"
 
 				Dhall::TypeAnnotation.new(
 					value: @expr.with(lhs: annotated_lhs, rhs: annotated_rhs),
-					type:  annotated_lhs.type
+					type:  types.first
 				)
 			end
 		end

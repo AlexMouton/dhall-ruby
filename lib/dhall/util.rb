@@ -2,6 +2,16 @@
 
 module Dhall
 	module Util
+		class AllOf
+			def initialize(*validators)
+				@validators = validators
+			end
+
+			def ===(other)
+				@validators.all? { |v| v === other }
+			end
+		end
+
 		class ArrayOf < ValueSemantics::ArrayOf
 			def initialize(element_validator, min: 0, max: Float::INFINITY)
 				@min = min

@@ -650,20 +650,13 @@ module Dhall
 		end
 
 		def fetch(k, default=nil)
-			if (default || block_given?) && !alternatives.key?(k)
-				return (default || yield)
-			end
-
-			remains = with(alternatives: alternatives.dup.tap { |r| r.delete(k) })
 			Function.new(
 				var:  k,
 				type: alternatives.fetch(k),
-				body: Union.new(
-					tag:          k,
-					value:        Variable.new(name: k),
-					alternatives: remains
-				)
+				body: Union.from(self, tag, Variable[k])
 			).normalize
+		rescue KeyError
+			block_given? ? yield : (default || raise)
 		end
 
 		def constructor_types
@@ -683,6 +676,16 @@ module Dhall
 			value        Expression
 			alternatives UnionType
 		end)
+
+		def self.from(alts, tag, value)
+			new(
+				tag:          tag,
+				value:        value,
+				alternatives: alts.with(
+					alternatives: alts.alternatives.reject { |alt, _| alt == tag }
+				)
+			)
+		end
 
 		def as_json
 			[12, tag, value.as_json, alternatives.as_json.last]

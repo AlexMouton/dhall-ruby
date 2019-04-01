@@ -790,8 +790,7 @@ module Dhall
 		end
 
 		def to_cbor(packer=nil)
-			if [0.0, Float::INFINITY, -Float::INFINITY].include?(value) ||
-			   value.nan?
+			if [0, Float::INFINITY, -Float::INFINITY].include?(value) || value.nan?
 				return value.to_cbor(packer)
 			end
 

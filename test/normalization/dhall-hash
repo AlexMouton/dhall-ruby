@@ -1,0 +1,7 @@
+#!/bin/sh
+
+out="$(echo "$1" | sed -e's/\.dhallb$/.hash/')"
+dhall decode < "$1" | dhall hash > "$out" 2>/dev/null
+if [ $(wc -c < "$out") -eq 0 ]; then
+	rm -f "$out"
+fi

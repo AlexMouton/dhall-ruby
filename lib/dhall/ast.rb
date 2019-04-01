@@ -680,7 +680,10 @@ module Dhall
 		def self.from(alts, tag, value)
 			new(
 				tag:          tag,
-				value:        value,
+				value:        TypeAnnotation.new(
+					value: value,
+					type:  alts.alternatives[tag]
+				),
 				alternatives: alts.with(
 					alternatives: alts.alternatives.reject { |alt, _| alt == tag }
 				)

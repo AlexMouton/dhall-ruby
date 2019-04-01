@@ -1089,6 +1089,31 @@ module Dhall
 		end
 	end
 
+	class LetIn < Expression
+		include(ValueSemantics.for_attributes do
+			let  Let
+			body Expression
+		end)
+
+		def desugar
+			Application.new(
+				function: Function.new(
+					var:  let.var,
+					type: let.type,
+					body: body
+				),
+				argument: let.assign
+			)
+		end
+
+		def eliminate
+			body.substitute(
+				Dhall::Variable[let.var],
+				let.assign.shift(1, let.var, 0)
+			).shift(-1, let.var, 0)
+		end
+	end
+
 	class LetBlock < Expression
 		include(ValueSemantics.for_attributes do
 			lets ArrayOf(Let)
@@ -1097,30 +1122,13 @@ module Dhall
 
 		def unflatten
 			lets.reverse.reduce(body) do |inside, let|
-				LetBlock.new(lets: [let], body: inside)
+				letin = LetIn.new(let: let, body: inside)
+				block_given? ? (yield letin) : letin
 			end
 		end
 
 		def desugar
-			lets.reverse.reduce(body) do |inside, let|
-				Application.new(
-					function: Function.new(
-						var:  let.var,
-						type: let.type,
-						body: inside
-					),
-					argument: let.assign
-				)
-			end
-		end
-
-		def eliminate
-			return unflatten.eliminate if lets.length > 1
-
-			body.substitute(
-				Dhall::Variable[lets.first.var],
-				lets.first.assign.shift(1, lets.first.var, 0)
-			).shift(-1, lets.first.var, 0)
+			unflatten(&:desugar)
 		end
 
 		def as_json

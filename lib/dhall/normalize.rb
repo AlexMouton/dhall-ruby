@@ -354,19 +354,28 @@ module Dhall
 	class Import
 	end
 
+	class LetIn
+		def normalize
+			desugar.normalize
+		end
+
+		def shift(amount, name, min_index)
+			return super unless let.var == name
+
+			with(
+				let:  let.shift(amount, name, min_index),
+				body: body.shift(amount, name, min_index + 1)
+			)
+		end
+	end
+
 	class LetBlock
 		def normalize
 			desugar.normalize
 		end
 
 		def shift(amount, name, min_index)
-			return unflatten.shift(amount, name, min_index) if lets.length > 1
-			return super unless lets.first.var == name
-
-			with(
-				lets: [let.first.shift(amount, name, min_index)],
-				body: body.shift(amount, name, min_index + 1)
-			)
+			unflatten.shift(amount, name, min_index)
 		end
 	end
 

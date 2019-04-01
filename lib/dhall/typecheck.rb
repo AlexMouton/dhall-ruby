@@ -859,28 +859,30 @@ module Dhall
 			end
 		end
 
-		class LetBlock
-			TypeChecker.register self, Dhall::LetBlock
+		TypeChecker.register ->(blk) { LetIn.for(blk.unflatten) }, Dhall::LetBlock
 
-			def self.for(letblock)
-				if letblock.lets.first.type
-					LetBlockAnnotated.new(letblock)
+		class LetIn
+			TypeChecker.register self, Dhall::LetIn
+
+			def self.for(letin)
+				if letin.let.type
+					LetInAnnotated.new(letin)
 				else
-					LetBlock.new(letblock)
+					LetIn.new(letin)
 				end
 			end
 
-			def initialize(letblock)
-				@letblock = letblock.unflatten
-				@let = @letblock.lets.first
+			def initialize(letin)
+				@letin = letin
+				@let = @letin.let
 			end
 
 			def annotate(context)
 				alet = @let.with(type: assign_type(context))
-				type = TypeChecker.for(@letblock.eliminate).annotate(context).type
-				abody = Dhall::TypeAnnotation.new(value: @letblock.body, type: type)
+				type = TypeChecker.for(@letin.eliminate).annotate(context).type
+				abody = Dhall::TypeAnnotation.new(value: @letin.body, type: type)
 				Dhall::TypeAnnotation.new(
-					value: @letblock.with(lets: [alet], body: abody),
+					value: @letin.with(let: alet, body: abody),
 					type:  type
 				)
 			end
@@ -892,7 +894,7 @@ module Dhall
 			end
 		end
 
-		class LetBlockAnnotated < LetBlock
+		class LetInAnnotated < LetIn
 			protected
 
 			def assign_type(context)

@@ -237,25 +237,25 @@ module Dhall
 
 	class List
 		def normalize
-			super.with(type: nil)
+			super.with(element_type: nil)
 		end
 	end
 
 	class EmptyList
 		def normalize
-			super.with(type: type.normalize)
+			super.with(element_type: element_type.normalize)
 		end
 	end
 
 	class Optional
 		def normalize
-			with(value: value.normalize, type: nil)
+			with(value: value.normalize, value_type: nil)
 		end
 	end
 
 	class OptionalNone
 		def normalize
-			with(type: type.normalize)
+			with(value_type: value_type.normalize)
 		end
 	end
 

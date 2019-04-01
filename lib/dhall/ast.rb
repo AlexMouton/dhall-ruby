@@ -353,11 +353,11 @@ module Dhall
 		end
 
 		def first
-			OptionalNone.new(value_type: type)
+			OptionalNone.new(value_type: element_type)
 		end
 
 		def last
-			OptionalNone.new(value_type: type)
+			OptionalNone.new(value_type: element_type)
 		end
 
 		def reverse
@@ -653,7 +653,7 @@ module Dhall
 			Function.new(
 				var:  k,
 				type: alternatives.fetch(k),
-				body: Union.from(self, tag, Variable[k])
+				body: Union.from(self, k, Variable[k])
 			).normalize
 		rescue KeyError
 			block_given? ? yield : (default || raise)
@@ -902,7 +902,7 @@ module Dhall
 			end
 
 			def headers
-				super || EmptyList.new(type: HeaderType)
+				super || EmptyList.new(element_type: HeaderType)
 			end
 
 			def uri

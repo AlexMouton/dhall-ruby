@@ -204,7 +204,7 @@ module Dhall
 					arg.call(
 						Variable["List"].call(type),
 						cons,
-						EmptyList.new(type: type)
+						EmptyList.new(element_type: type)
 					)
 				end
 			end
@@ -358,7 +358,7 @@ module Dhall
 					arg.call(
 						Variable["Optional"].call(type),
 						some,
-						OptionalNone.new(type: type)
+						OptionalNone.new(value_type: type)
 					)
 				end
 			end
@@ -369,8 +369,8 @@ module Dhall
 				Function.of_arguments(
 					type,
 					body: Optional.new(
-						value: Variable["_"],
-						type:  type
+						value:      Variable["_"],
+						value_type: type
 					)
 				)
 			end

@@ -113,12 +113,9 @@ module Dhall
 						Float::NAN
 					else
 						float = string.to_f
-						if float.nan? || float.infinite?
-							raise Citrus::ParseError, input
-						end
+						raise Citrus::ParseError, input if float.nan? || float.infinite?
 						float
-					end
-				)
+					end)
 			end
 		end
 
@@ -128,9 +125,9 @@ module Dhall
 					*captures(:double_quote_chunk)
 					.map(&:value)
 					.chunk { |s| s.is_a?(String) }
-					.flat_map { |(is_string, group)|
+					.flat_map do |(is_string, group)|
 						is_string ? group.join : group
-					}
+					end
 				)
 			end
 		end
@@ -152,9 +149,9 @@ module Dhall
 				if first&.string == "\\" && matches[1].string =~ /\Au\h+\Z/i
 					[matches[1].string[1..-1]].pack("H*").force_encoding("UTF-16BE")
 				elsif first&.string == "\\"
-					ESCAPES.fetch(matches[1].string) do
+					ESCAPES.fetch(matches[1].string) {
 						raise "Invalid escape: #{string}"
-					end.encode("UTF-16BE")
+					}.encode("UTF-16BE")
 				elsif first&.string == "${"
 					matches[1].value
 				else
@@ -187,7 +184,7 @@ module Dhall
 			def value
 				if matches.length == 2
 					[ESCAPES.fetch(first.string, first.string), matches[1].value]
-				elsif matches.length == 0
+				elsif matches.empty?
 					[]
 				else
 					[
@@ -359,14 +356,14 @@ module Dhall
 				if keys.length == 1
 					capture(keys.first).value
 				elsif captures.key?(:let)
-					lets = first.matches.map { |let_match|
+					lets = first.matches.map do |let_match|
 						exprs = let_match.captures(:expression)
 						Let.new(
 							var:    let_match.capture(:nonreserved_label).value,
 							assign: exprs.last.value,
-							type:   exprs.length > 1 ? exprs.first.value : nil,
+							type:   exprs.length > 1 ? exprs.first.value : nil
 						)
-					}
+					end
 
 					if lets.length == 1
 						LetIn.new(let: lets.first, body: matches.last.value)
@@ -394,7 +391,7 @@ module Dhall
 					If.new(
 						predicate: captures(:expression)[0].value,
 						then:      captures(:expression)[1].value,
-						else:      captures(:expression)[2].value,
+						else:      captures(:expression)[2].value
 					)
 				elsif captures.key?(:merge)
 					Merge.new(
@@ -438,7 +435,7 @@ module Dhall
 		module Http
 			SCHEME = {
 				"http"  => Dhall::Import::Http,
-				"https" => Dhall::Import::Https,
+				"https" => Dhall::Import::Https
 			}.freeze
 
 			def self.escape(s)
@@ -452,10 +449,7 @@ module Dhall
 						capture(:import_hashed).value(Dhall::Import::Expression)
 					end,
 					http.capture(:authority).value,
-					*http.capture(:path).captures(:path_component).map { |c|
-						# https://github.com/dhall-lang/dhall-lang/issues/456
-						c.value # (Http.method(:escape))
-					},
+					*http.capture(:path).captures(:path_component).map(&:value),
 					http.capture(:query)&.value
 				)
 			end
@@ -484,9 +478,9 @@ module Dhall
 
 			def value
 				if first&.string == "\\"
-					ESCAPES.fetch(matches[1].string) do
+					ESCAPES.fetch(matches[1].string) {
 						raise "Invalid escape: #{string}"
-					end.encode("UTF-16BE")
+					}.encode("UTF-16BE")
 				else
 					string
 				end

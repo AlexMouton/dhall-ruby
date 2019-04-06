@@ -660,11 +660,8 @@ module Dhall
 
 		def fetch(k, default=nil)
 			if (type = alternatives.fetch(k))
-				Function.new(
-					var:  k,
-					type: type,
-					body: Union.from(self, k, Variable[k])
-				).normalize
+				body = Union.from(self, k, Variable[k])
+				Function.new(var: k, type: type, body: body).normalize
 			else
 				Union.from(self, k, nil)
 			end
@@ -856,14 +853,13 @@ module Dhall
 
 		def self.for(*chunks)
 			fixed =
-				chunks
+				([""] + chunks)
 				.flat_map { |c| ["", c, ""] }
 				.map { |c| c.is_a?(Expression) ? c : Text.new(value: c.to_s) }
 				.chunk { |x| x.is_a?(Text) }.flat_map do |(is_text, group)|
 					is_text ? group.reduce(&:<<) : group
 				end
 
-			return Text.new(value: "") if fixed.empty?
 			fixed.length == 1 ? fixed.first : new(chunks: fixed)
 		end
 
@@ -884,7 +880,7 @@ module Dhall
 			def initialize(protocol=:nocheck, data=nil)
 				super(
 					protocol: protocol,
-					data: data
+					data:     data
 				)
 			end
 
@@ -934,7 +930,7 @@ module Dhall
 					hash.fetch(:headers),
 					authority,
 					*path,
-					query,
+					query
 				)
 			end
 
@@ -1054,6 +1050,12 @@ module Dhall
 				"t"  => "\t",
 				"v"  => "\v"
 			}.freeze
+
+			def self.decode(var)
+				var.gsub(/\\[\"\\abfnrtv]/) do |escape|
+					ESCAPES.fetch(escape[1])
+				end
+			end
 
 			def initialize(var)
 				@var = var
@@ -1183,6 +1185,14 @@ module Dhall
 			lets Util::ArrayOf.new(Let, min: 2)
 			body Expression
 		end)
+
+		def self.for(lets:, body:)
+			if lets.length == 1
+				LetIn.new(let: lets.first, body: body)
+			else
+				new(lets: lets, body: body)
+			end
+		end
 
 		def unflatten
 			lets.reverse.reduce(body) do |inside, let|

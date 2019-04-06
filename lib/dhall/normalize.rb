@@ -6,16 +6,18 @@ require "dhall/util"
 
 module Dhall
 	module ExpressionVisitor
+		ExpressionHash = Util::HashOf.new(
+			ValueSemantics::Anything,
+			ValueSemantics::Either.new([Expression, nil])
+		)
+
 		def self.new(&block)
 			Visitor.new(
-				Expression                                             => block,
-				Util::ArrayOf.new(Expression)                          => lambda do |x|
+				Expression                    => block,
+				Util::ArrayOf.new(Expression) => lambda do |x|
 					x.map(&block)
 				end,
-				Util::HashOf.new(
-					ValueSemantics::Anything,
-					ValueSemantics::Either.new([Expression, nil])
-				) => lambda do |x|
+				ExpressionHash                => lambda do |x|
 					Hash[x.map { |k, v| [k, v.nil? ? v : block[v]] }]
 				end
 			)
@@ -266,13 +268,9 @@ module Dhall
 		def normalize
 			normalized = super
 			if normalized.record.is_a?(Record) && normalized.input.is_a?(Union)
-				if normalized.input.value.nil?
-					normalized.record.fetch(normalized.input.tag)
-				else
-					normalized.record.fetch(normalized.input.tag).call(
-						normalized.input.value
-					)
-				end
+				fetched = normalized.record.fetch(normalized.input.tag)
+				value = normalized.input.value
+				value.nil? ? fetched : fetched.call(value)
 			else
 				normalized
 			end

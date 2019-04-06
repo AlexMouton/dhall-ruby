@@ -145,9 +145,9 @@ module Dhall
 
 	class UnionType
 		def self.decode(record)
-			new(alternatives: Hash[record.map { |k, v|
+			new(alternatives: Hash[record.map do |k, v|
 				[k, v.nil? ? v : Dhall.decode(v)]
-			}])
+			end])
 		end
 	end
 
@@ -187,13 +187,7 @@ module Dhall
 	class Import
 		def self.decode(integrity_check, import_type, path_type, *parts)
 			parts[0] = Dhall.decode(parts[0]) if path_type < 2 && !parts[0].nil?
-			if PATH_TYPES[path_type] == EnvironmentVariable
-				parts = parts.map do |part|
-					part.gsub(/\\[\"\\abfnrtv]/) do |escape|
-						EnvironmentVariable::ESCAPES.fetch(escape[1])
-					end
-				end
-			end
+			parts[0] = EnvironmentVariable.decode(parts[0]) if path_type == 5
 
 			new(
 				IntegrityCheck.new(*integrity_check),
@@ -214,11 +208,7 @@ module Dhall
 				)
 			end
 
-			if lets.length == 1
-				LetIn.new(let: lets.first, body: body)
-			else
-				new(lets: lets, body: body)
-			end
+			self.for(lets: lets, body: body)
 		end
 	end
 

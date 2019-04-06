@@ -9,14 +9,16 @@ require "dhall/binary"
 
 class TestAsJson < Minitest::Test
 	DIRPATH = Pathname.new(File.dirname(__FILE__))
-	TESTS = DIRPATH + "normalization/"
+	TESTS = DIRPATH + "../dhall-lang/tests/**/success/"
 
 	Pathname.glob(TESTS + "**/*.dhallb").each do |path|
 		test = path.relative_path_from(TESTS).to_s.sub(/.dhallb$/, "")
 		define_method("test_#{test}") do
+			skip "double as_json" if test =~ /doubleB/
+			skip "deprecated syntax" if test =~ /collectionImportTypeB|annotationsB/
 			assert_equal(
-				CBOR.decode(path.read).inspect,
-				Dhall.from_binary(path.read).as_json.inspect
+				CBOR.decode(path.read),
+				Dhall.from_binary(path.read).as_json
 			)
 		end
 	end

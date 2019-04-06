@@ -39,7 +39,7 @@ class TestResolvers < Minitest::Test
 				sources.map { |source| Promise.resolve(source) }
 			end
 		)
-		source = Dhall::Import::Http.new(nil, "example.com", "x.dhall", nil, nil)
+		source = Dhall::Import::Http.new(nil, "example.com", "x.dhall", nil)
 		promise = source.resolve(resolver)
 		resolver.finish!
 		assert_equal source, promise.sync
@@ -51,7 +51,7 @@ class TestResolvers < Minitest::Test
 				sources.map { |source| Promise.resolve(source) }
 			end
 		)
-		source = Dhall::Import::Https.new(nil, "example.com", "x.dhall", nil, nil)
+		source = Dhall::Import::Https.new(nil, "example.com", "x.dhall", nil)
 		promise = source.resolve(resolver)
 		resolver.finish!
 		assert_equal source, promise.sync
@@ -63,7 +63,7 @@ class TestResolvers < Minitest::Test
 				sources.map { |source| Promise.resolve(source) }
 			end
 		)
-		source = Dhall::Import::Https.new(nil, "example.com", "x.dhall", nil, nil)
+		source = Dhall::Import::Https.new(nil, "example.com", "x.dhall", nil)
 		promise = source.resolve(resolver)
 		resolver.finish!
 		assert_equal source, promise.sync
@@ -71,7 +71,7 @@ class TestResolvers < Minitest::Test
 
 	def test_local_only_resolver_rejects_http
 		resolver = Dhall::Resolvers::LocalOnly.new
-		source = Dhall::Import::Http.new(nil, "example.com", "x.dhall", nil, nil)
+		source = Dhall::Import::Http.new(nil, "example.com", "x.dhall", nil)
 		promise = source.resolve(resolver)
 		resolver.finish!
 		assert_raises Dhall::ImportBannedException do

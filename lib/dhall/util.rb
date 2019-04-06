@@ -51,6 +51,58 @@ module Dhall
 			end
 		end
 
+		class Not
+			def initialize(validator)
+				@validator = validator
+			end
+
+			def ===(other)
+				!(@validator === other)
+			end
+		end
+
+		module BuiltinName
+			NAMES = [
+				"Natural/build",
+				"Natural/fold",
+				"Natural/isZero",
+				"Natural/even",
+				"Natural/odd",
+				"Natural/toInteger",
+				"Natural/show",
+				"Integer/toDouble",
+				"Integer/show",
+				"Double/show",
+				"List/build",
+				"List/fold",
+				"List/length",
+				"List/head",
+				"List/last",
+				"List/indexed",
+				"List/reverse",
+				"Optional/fold",
+				"Optional/build",
+				"Text/show",
+				"Bool",
+				"Optional",
+				"Natural",
+				"Integer",
+				"Double",
+				"Text",
+				"List",
+				"True",
+				"False",
+				"None",
+				"Type",
+				"Kind",
+				"Sort"
+			].freeze
+
+			def self.===(other)
+				NAMES.include?(other)
+			end
+		end
+
 		def self.match_results(xs=nil, ys=nil)
 			Array(xs).each_with_index.map do |r, idx|
 				yield r, ys[idx]

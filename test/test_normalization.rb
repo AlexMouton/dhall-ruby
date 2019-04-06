@@ -4,26 +4,26 @@ require "minitest/autorun"
 require "pathname"
 
 require "dhall/ast"
-require "dhall/binary"
+require "dhall/parser"
 require "dhall/normalize"
 
 class TestNormalization < Minitest::Test
 	DIRPATH = Pathname.new(File.dirname(__FILE__))
-	TESTS = DIRPATH + "normalization/"
+	TESTS = DIRPATH + "../dhall-lang/tests/{α-,}normalization/"
 
-	Pathname.glob(TESTS + "**/*A.dhallb").each do |path|
-		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhallb$/, "")
+	Pathname.glob(TESTS + "success/**/*A.dhall").each do |path|
+		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhall$/, "")
 		next if test =~ /prelude\//
 		next if test =~ /remoteSystems/
 		next if test =~ /multiline\//
 
 		define_method("test_#{test}") do
-			Dhall::Function.disable_alpha_normalization! if test =~ /^standard\//
+			Dhall::Function.disable_alpha_normalization! if test !~ /α/
 			assert_equal(
-				Dhall.from_binary((TESTS + "#{test}B.dhallb").binread),
-				Dhall.from_binary(path.binread).normalize
+				Dhall::Parser.parse_file(TESTS + "#{test}B.dhall").value,
+				Dhall::Parser.parse_file(path).value.normalize
 			)
-			Dhall::Function.enable_alpha_normalization! if test =~ /^standard\//
+			Dhall::Function.enable_alpha_normalization! if test !~ /α/
 		end
 	end
 

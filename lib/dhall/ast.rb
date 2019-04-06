@@ -4,7 +4,6 @@ require "uri"
 require "value_semantics"
 
 require "dhall/util"
-require "dhall/visitor"
 
 module Dhall
 	class Expression
@@ -111,6 +110,16 @@ module Dhall
 			argument Expression
 		end)
 
+		def self.for(function:, argument:)
+			if function == Variable["Some"]
+				Optional.new(value: argument)
+			elsif function == Variable["None"]
+				OptionalNone.new(value_type: argument)
+			else
+				new(function: function, argument: argument)
+			end
+		end
+
 		def flatten
 			f, args = if function.is_a?(Application)
 				function.flatten
@@ -132,7 +141,7 @@ module Dhall
 
 	class Function < Expression
 		include(ValueSemantics.for_attributes do
-			var  ::String
+			var  Util::AllOf.new(::String, Util::Not.new(Util::BuiltinName))
 			type Either(nil, Expression) # nil is not allowed in proper Dhall
 			body Expression
 		end)
@@ -630,7 +639,7 @@ module Dhall
 
 	class UnionType < Expression
 		include(ValueSemantics.for_attributes do
-			alternatives Util::HashOf.new(::String, Expression)
+			alternatives Util::HashOf.new(::String, Either(Expression, nil))
 		end)
 
 		def record
@@ -650,11 +659,15 @@ module Dhall
 		end
 
 		def fetch(k, default=nil)
-			Function.new(
-				var:  k,
-				type: alternatives.fetch(k),
-				body: Union.from(self, k, Variable[k])
-			).normalize
+			if (type = alternatives.fetch(k))
+				Function.new(
+					var:  k,
+					type: type,
+					body: Union.from(self, k, Variable[k])
+				).normalize
+			else
+				Union.from(self, k, nil)
+			end
 		rescue KeyError
 			block_given? ? yield : (default || raise)
 		end
@@ -666,21 +679,21 @@ module Dhall
 		end
 
 		def as_json
-			[11, Hash[alternatives.to_a.map { |k, v| [k, v.as_json] }.sort]]
+			[11, Hash[alternatives.to_a.map { |k, v| [k, v&.as_json] }.sort]]
 		end
 	end
 
 	class Union < Expression
 		include(ValueSemantics.for_attributes do
 			tag          ::String
-			value        Expression
+			value        Either(Expression, nil)
 			alternatives UnionType
 		end)
 
 		def self.from(alts, tag, value)
 			new(
 				tag:          tag,
-				value:        TypeAnnotation.new(
+				value:        value && TypeAnnotation.new(
 					value: value,
 					type:  alts.alternatives[tag]
 				),
@@ -707,10 +720,7 @@ module Dhall
 		end
 	end
 
-	class Number < Expression
-	end
-
-	class Natural < Number
+	class Natural < Expression
 		include(ValueSemantics.for_attributes do
 			value (0..Float::INFINITY)
 		end)
@@ -757,7 +767,7 @@ module Dhall
 		end
 	end
 
-	class Integer < Number
+	class Integer < Expression
 		include(ValueSemantics.for_attributes do
 			value ::Integer
 		end)
@@ -771,7 +781,7 @@ module Dhall
 		end
 	end
 
-	class Double < Number
+	class Double < Expression
 		include(ValueSemantics.for_attributes do
 			value ::Float
 		end)
@@ -780,16 +790,25 @@ module Dhall
 			value.to_s
 		end
 
+		def to_f
+			value
+		end
+
+		def coerce(other)
+			return [other, self] if other.is_a?(Double)
+			[Double.new(value: other.to_f), self]
+		end
+
 		def single?
 			[value].pack("g").unpack("g").first == value
 		end
 
 		def as_json
-			value
+			self
 		end
 
-		def as_cbor
-			self
+		def to_json
+			value.to_json
 		end
 
 		def to_cbor(packer=nil)
@@ -810,7 +829,7 @@ module Dhall
 
 	class Text < Expression
 		include(ValueSemantics.for_attributes do
-			value ::String
+			value ::String, coerce: ->(s) { s.encode("utf-8") }
 		end)
 
 		def <<(other)
@@ -832,30 +851,58 @@ module Dhall
 
 	class TextLiteral < Expression
 		include(ValueSemantics.for_attributes do
-			chunks ArrayOf(Expression)
+			chunks Util::ArrayOf.new(Expression, min: 3)
 		end)
 
+		def self.for(*chunks)
+			fixed =
+				chunks
+				.flat_map { |c| ["", c, ""] }
+				.map { |c| c.is_a?(Expression) ? c : Text.new(value: c.to_s) }
+				.chunk { |x| x.is_a?(Text) }.flat_map do |(is_text, group)|
+					is_text ? group.reduce(&:<<) : group
+				end
+
+			return Text.new(value: "") if fixed.empty?
+			fixed.length == 1 ? fixed.first : new(chunks: fixed)
+		end
+
 		def as_json
-			raise "TextLiteral must start with a Text" unless chunks.first.is_a?(Text)
 			[18, *chunks.map { |chunk| chunk.is_a?(Text) ? chunk.value : chunk.as_json }]
 		end
 	end
 
 	class Import < Expression
-		def initialize(integrity_check, import_type, path)
-			@integrity_check = integrity_check
-			@import_type = import_type
-			@path = path
-		end
+		class IntegrityCheck
+			include(ValueSemantics.for_attributes do
+				protocol Either("sha256", :nocheck)
+				data     Either(::String, nil)
+			end)
 
-		def as_json
-			[
-				24,
-				@integrity_check&.as_json,
-				IMPORT_TYPES.index(@import_type),
-				PATH_TYPES.index(@path.class),
-				*@path.as_json
-			]
+			class FailureException < StandardError; end
+
+			def initialize(protocol=:nocheck, data=nil)
+				super(
+					protocol: protocol,
+					data: data
+				)
+			end
+
+			def to_s
+				"#{@protocol}:#{@data}"
+			end
+
+			def check(expr)
+				if @protocol != :nocheck && expr.cache_key != to_s
+					raise FailureException, "#{expr} does not match #{self}"
+				end
+
+				expr
+			end
+
+			def as_json
+				@protocol == :nocheck ? nil : [@protocol, @data]
+			end
 		end
 
 		class URI
@@ -864,7 +911,6 @@ module Dhall
 				authority ::String
 				path      ArrayOf(::String)
 				query     Either(nil, ::String)
-				fragment  Either(nil, ::String)
 			end)
 
 			HeaderType = RecordType.new(
@@ -874,13 +920,12 @@ module Dhall
 				}
 			)
 
-			def initialize(headers, authority, *path, query, fragment)
+			def initialize(headers, authority, *path, query)
 				super(
 					headers:   headers,
 					authority: authority,
 					path:      path,
 					query:     query,
-					fragment:  fragment
 				)
 			end
 
@@ -890,7 +935,6 @@ module Dhall
 					authority,
 					*path,
 					query,
-					fragment
 				)
 			end
 
@@ -913,7 +957,7 @@ module Dhall
 			end
 
 			def as_json
-				[@headers.as_json, authority, *path, query, fragment]
+				[@headers&.as_json, authority, *path, query]
 			end
 		end
 
@@ -976,7 +1020,7 @@ module Dhall
 			end
 
 			def to_uri(scheme, authority)
-				scheme.new(nil, authority, *path, nil, nil)
+				scheme.new(nil, authority, *path, nil)
 			end
 		end
 
@@ -999,6 +1043,18 @@ module Dhall
 		end
 
 		class EnvironmentVariable
+			ESCAPES = {
+				"\"" => "\"",
+				"\\" => "\\",
+				"a"  => "\a",
+				"b"  => "\b",
+				"f"  => "\f",
+				"n"  => "\n",
+				"r"  => "\r",
+				"t"  => "\t",
+				"v"  => "\v"
+			}.freeze
+
 			def initialize(var)
 				@var = var
 			end
@@ -1017,7 +1073,9 @@ module Dhall
 			end
 
 			def as_json
-				var
+				@var.gsub(/[\"\\\a\b\f\n\r\t\v]/) do |c|
+					"\\" + ESCAPES.find { |(_, v)| v == c }.first
+				end
 			end
 		end
 
@@ -1028,31 +1086,6 @@ module Dhall
 
 			def as_json
 				[]
-			end
-		end
-
-		class IntegrityCheck
-			class FailureException < StandardError; end
-
-			def initialize(protocol=:nocheck, data=nil)
-				@protocol = protocol
-				@data = data
-			end
-
-			def to_s
-				"#{@protocol}:#{@data}"
-			end
-
-			def check(expr)
-				if @protocol != :nocheck && expr.cache_key != to_s
-					raise FailureException, "#{expr} does not match #{self}"
-				end
-
-				expr
-			end
-
-			def as_json
-				@protocol == :nocheck ? nil : [@protocol, @data]
 			end
 		end
 
@@ -1078,11 +1111,35 @@ module Dhall
 			AbsolutePath, RelativePath, RelativeToParentPath, RelativeToHomePath,
 			EnvironmentVariable, MissingImport
 		].freeze
+
+		include(ValueSemantics.for_attributes do
+			integrity_check IntegrityCheck, default: IntegrityCheck.new
+			import_type     Class
+			path            Either(*PATH_TYPES)
+		end)
+
+		def initialize(integrity_check, import_type, path)
+			super(
+				integrity_check: integrity_check || IntegrityCheck.new,
+				import_type:     import_type,
+				path:            path
+			)
+		end
+
+		def as_json
+			[
+				24,
+				integrity_check&.as_json,
+				IMPORT_TYPES.index(import_type),
+				PATH_TYPES.index(path.class),
+				*path.as_json
+			]
+		end
 	end
 
 	class Let < Expression
 		include(ValueSemantics.for_attributes do
-			var    ::String
+			var    Util::AllOf.new(::String, Util::Not.new(Util::BuiltinName))
 			assign Expression
 			type   Either(nil, Expression)
 		end)
@@ -1115,11 +1172,15 @@ module Dhall
 				let.assign.shift(1, let.var, 0)
 			).shift(-1, let.var, 0)
 		end
+
+		def as_json
+			[25, *let.as_json, body.as_json]
+		end
 	end
 
 	class LetBlock < Expression
 		include(ValueSemantics.for_attributes do
-			lets ArrayOf(Let)
+			lets Util::ArrayOf.new(Let, min: 2)
 			body Expression
 		end)
 

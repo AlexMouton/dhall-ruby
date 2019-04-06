@@ -8,7 +8,7 @@ require "dhall/binary"
 
 class TestBinary < Minitest::Test
 	DIRPATH = Pathname.new(File.dirname(__FILE__))
-	TESTS = DIRPATH + "normalization/"
+	TESTS = DIRPATH + "../dhall-lang/tests/**/success/"
 
 	Pathname.glob(TESTS + "**/*.dhallb").each do |path|
 		test = path.relative_path_from(TESTS).to_s.sub(/.dhallb$/, "")

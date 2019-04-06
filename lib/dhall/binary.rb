@@ -27,13 +27,9 @@ module Dhall
 		end
 
 		def to_cbor(io=nil)
-			CBOR.encode(as_cbor, io)
+			CBOR.encode(as_json, io)
 		end
 		alias to_binary to_cbor
-
-		def as_cbor
-			as_json
-		end
 
 		def digest(digest: Digest::SHA2.new(256))
 			(digest << normalize.to_binary).freeze
@@ -48,7 +44,7 @@ module Dhall
 		def self.decode(function, *args)
 			function = Dhall.decode(function)
 			args.map(&Dhall.method(:decode)).reduce(function) do |f, arg|
-				new(function: f, argument: arg)
+				self.for(function: f, argument: arg)
 			end
 		end
 	end
@@ -149,7 +145,9 @@ module Dhall
 
 	class UnionType
 		def self.decode(record)
-			new(alternatives: Hash[record.map { |k, v| [k, Dhall.decode(v)] }])
+			new(alternatives: Hash[record.map { |k, v|
+				[k, v.nil? ? v : Dhall.decode(v)]
+			}])
 		end
 	end
 
@@ -189,6 +187,13 @@ module Dhall
 	class Import
 		def self.decode(integrity_check, import_type, path_type, *parts)
 			parts[0] = Dhall.decode(parts[0]) if path_type < 2 && !parts[0].nil?
+			if PATH_TYPES[path_type] == EnvironmentVariable
+				parts = parts.map do |part|
+					part.gsub(/\\[\"\\abfnrtv]/) do |escape|
+						EnvironmentVariable::ESCAPES.fetch(escape[1])
+					end
+				end
+			end
 
 			new(
 				IntegrityCheck.new(*integrity_check),
@@ -200,16 +205,20 @@ module Dhall
 
 	class LetBlock
 		def self.decode(*parts)
-			new(
-				body: Dhall.decode(parts.pop),
-				lets: parts.each_slice(3).map do |(var, type, assign)|
-					Let.new(
-						var:    var,
-						assign: Dhall.decode(assign),
-						type:   type.nil? ? nil : Dhall.decode(type)
-					)
-				end
-			)
+			body = Dhall.decode(parts.pop)
+			lets = parts.each_slice(3).map do |(var, type, assign)|
+				Let.new(
+					var:    var,
+					assign: Dhall.decode(assign),
+					type:   type.nil? ? nil : Dhall.decode(type)
+				)
+			end
+
+			if lets.length == 1
+				LetIn.new(let: lets.first, body: body)
+			else
+				new(lets: lets, body: body)
+			end
 		end
 	end
 

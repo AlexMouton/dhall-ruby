@@ -1,3 +1,0 @@
-#!/bin/sh
-
-dhall encode < "$1" > "$1"b

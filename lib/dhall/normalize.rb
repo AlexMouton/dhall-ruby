@@ -12,8 +12,11 @@ module Dhall
 				Util::ArrayOf.new(Expression)                          => lambda do |x|
 					x.map(&block)
 				end,
-				Util::HashOf.new(ValueSemantics::Anything, Expression) => lambda do |x|
-					Hash[x.map { |k, v| [k, block[v]] }]
+				Util::HashOf.new(
+					ValueSemantics::Anything,
+					ValueSemantics::Either.new([Expression, nil])
+				) => lambda do |x|
+					Hash[x.map { |k, v| [k, v.nil? ? v : block[v]] }]
 				end
 			)
 		end
@@ -263,9 +266,13 @@ module Dhall
 		def normalize
 			normalized = super
 			if normalized.record.is_a?(Record) && normalized.input.is_a?(Union)
-				normalized.record.fetch(normalized.input.tag).call(
-					normalized.input.value
-				)
+				if normalized.input.value.nil?
+					normalized.record.fetch(normalized.input.tag)
+				else
+					normalized.record.fetch(normalized.input.tag).call(
+						normalized.input.value
+					)
+				end
 			else
 				normalized
 			end
@@ -331,17 +338,7 @@ module Dhall
 
 	class TextLiteral
 		def normalize
-			chunks =
-				super
-				.flatten.chunks.chunk { |x| x.is_a?(Text) }.flat_map do |(_, group)|
-					if group.first.is_a?(Text)
-						[Text.new(value: group.map(&:value).join)]
-					else
-						group
-					end
-				end
-
-			chunks.length == 1 ? chunks.first : with(chunks: chunks)
+			TextLiteral.for(*super.flatten.chunks)
 		end
 
 		def flatten

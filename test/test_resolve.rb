@@ -25,7 +25,7 @@ class TestResolve < Minitest::Test
 						"text"     => "aGFp",
 						"moretext" => "hRgY9gEDZHRleHQ",
 						"2text"    => "hAMGhRgY9gEDZHRleHSFGBj2AANobW9yZXRleHQ",
-						"using"    => "iRgY9gAAhRgY9gADZ2hlYWRlcnNkZS50ZGF09vY",
+						"using"    => "iBgY9gAAhRgY9gADZ2hlYWRlcnNkZS50ZGF09g",
 						"headers"  => "gwT2ggiiZmhlYWRlcoISYnRoZXZhbHVlghJidHY"
 					}.fetch(source.pathname.to_s)))
 				end

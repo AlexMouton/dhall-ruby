@@ -14,9 +14,11 @@ class TestCacheKey < Minitest::Test
 	Pathname.glob(TESTS + "**/*A.dhall").each do |path|
 		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhall$/, "")
 		define_method("test_#{test}") do
+			skip "requires resolve" if test =~ /prelude\/|remoteSystems/
+
 			assert_equal(
-				(TESTS + "#{test}B.dhall").read.chomp,
-				Dhall::Parser.parse_file(path).cache_key
+				(TESTS + "#{test}B.hash").read.chomp,
+				Dhall::Parser.parse_file(path).value.cache_key
 			)
 		end
 	end

@@ -835,7 +835,7 @@ module Dhall
 
 	class Text < Expression
 		include(ValueSemantics.for_attributes do
-			value ::String, coerce: ->(s) { s.encode("utf-8") }
+			value ::String, coerce: ->(s) { s.encode("UTF-8") }
 		end)
 
 		def <<(other)
@@ -1102,7 +1102,7 @@ module Dhall
 
 		class Expression
 			def self.call(import_value)
-				Dhall.from_binary(import_value)
+				Dhall.load_raw(import_value)
 			end
 		end
 

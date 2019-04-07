@@ -4,9 +4,7 @@ require "base64"
 require "webmock/minitest"
 require "minitest/autorun"
 
-require "dhall/resolve"
-require "dhall/normalize"
-require "dhall/parser"
+require "dhall"
 
 class TestResolve < Minitest::Test
 	def setup
@@ -187,7 +185,7 @@ class TestResolve < Minitest::Test
 	def test_headers
 		stub_request(:get, "http://e.td/t")
 			.with(headers: { "Th" => "tv" })
-			.to_return(status: 200, body: "\x00")
+			.to_return(status: 200, body: "\x00".b)
 
 		expr = Dhall::Import.new(
 			Dhall::Import::IntegrityCheck.new,
@@ -200,7 +198,7 @@ class TestResolve < Minitest::Test
 
 	def test_ipfs
 		stub_request(:get, "http://localhost:8000/ipfs/TESTCID")
-			.to_return(status: 200, body: "\x00")
+			.to_return(status: 200, body: "\x00".b)
 
 		expr = Dhall::Import.new(
 			Dhall::Import::IntegrityCheck.new,
@@ -216,7 +214,7 @@ class TestResolve < Minitest::Test
 			.to_return(status: 500)
 
 		stub_request(:get, "https://cloudflare-ipfs.com/ipfs/TESTCID")
-			.to_return(status: 200, body: "\x00")
+			.to_return(status: 200, body: "_")
 
 		expr = Dhall::Import.new(
 			Dhall::Import::IntegrityCheck.new,

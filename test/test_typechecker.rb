@@ -4,22 +4,22 @@ require "minitest/autorun"
 require "pathname"
 
 require "dhall/typecheck"
-require "dhall/binary"
+require "dhall/parser"
 
 class TestTypechecker < Minitest::Test
 	DIRPATH = Pathname.new(File.dirname(__FILE__))
-	TESTS = DIRPATH + "typechecker/"
+	TESTS = DIRPATH + "../dhall-lang/tests/typecheck/"
 
-	Pathname.glob(TESTS + "success/**/*A.dhallb").each do |path|
-		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhallb$/, "")
+	Pathname.glob(TESTS + "success/**/*A.dhall").each do |path|
+		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhall$/, "")
 		next if test =~ /prelude/
 
 		define_method("test_#{test}") do
 			assert_respond_to(
 				Dhall::TypeChecker.for(
 					Dhall::TypeAnnotation.new(
-						value: Dhall.from_binary(path.binread),
-						type:  Dhall.from_binary((TESTS + "#{test}B.dhallb").binread)
+						value: Dhall::Parser.parse_file(path).value,
+						type:  Dhall::Parser.parse_file(TESTS + "#{test}B.dhall").value
 					)
 				).annotate(Dhall::TypeChecker::Context.new),
 				:type
@@ -27,16 +27,30 @@ class TestTypechecker < Minitest::Test
 		end
 	end
 
-	Pathname.glob(TESTS + "failure/**/*.dhallb").each do |path|
-		test = path.relative_path_from(TESTS).to_s.sub(/.dhallb$/, "")
+	Pathname.glob(TESTS + "failure/**/*.dhall").each do |path|
+		test = path.relative_path_from(TESTS).to_s.sub(/.dhall$/, "")
 
 		define_method("test_#{test}") do
 			assert_raises TypeError do
-				expr = Dhall.from_binary(path.binread)
 				Dhall::TypeChecker.for(
-					expr
+					Dhall::Parser.parse_file(path).value
 				).annotate(Dhall::TypeChecker::Context.new)
 			end
+		end
+	end
+
+	ITESTS = DIRPATH + "../dhall-lang/tests/type-inference/"
+
+	Pathname.glob(ITESTS + "success/**/*A.dhall").each do |path|
+		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhall$/, "")
+
+		define_method("test_#{test}") do
+			assert_equal(
+				Dhall::Parser.parse_file(ITESTS + "#{test}B.dhall").value,
+				Dhall::TypeChecker.for(
+					Dhall::Parser.parse_file(path).value
+				).annotate(Dhall::TypeChecker::Context.new).type
+			)
 		end
 	end
 

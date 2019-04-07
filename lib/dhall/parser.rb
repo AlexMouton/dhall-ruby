@@ -120,13 +120,13 @@ module Dhall
 		module SelectorExpression
 			def value
 				record = capture(:primitive_expression).value
-				selectors = captures(:selector).map(&:value).map(&method(:Array))
+				selectors = captures(:selector).map(&:value)
 				selectors.reduce(record) do |rec, sels|
-					if sels.length == 1
-						RecordSelection.new(record: rec, selector: sels.first)
-					else
+					if sels.is_a?(Array)
 						return EmptyRecordProjection.new(record: rec) if sels.empty?
 						RecordProjection.new(record: rec, selectors: sels)
+					else
+						RecordSelection.new(record: rec, selector: sels)
 					end
 				end
 			end
@@ -394,9 +394,10 @@ module Dhall
 			def value(first_key)
 				Record.new(
 					record: captures(:record_literal_entry).map(&:value).reduce(
-						{ first_key => capture(:expression).value },
-						&:merge
-					)
+						first_key => capture(:expression).value
+					) do |final, rec|
+						final.merge(rec) { raise TypeError, "duplicate field" }
+					end
 				)
 			end
 		end

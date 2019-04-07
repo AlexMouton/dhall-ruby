@@ -1075,12 +1075,16 @@ module Dhall
 			end
 
 			def resolve(resolver)
-				val = ENV.fetch(@var)
-				if val =~ /\Ahttps?:\/\//
-					URI.from_uri(URI(value))
-				else
-					Path.from_string(val)
-				end.resolve(resolver)
+				Promise.resolve(nil).then do
+					val = ENV.fetch(@var) do
+						raise ImportFailedException, "No ENV #{@var}"
+					end
+					if val =~ /\Ahttps?:\/\//
+						URI.from_uri(URI(value))
+					else
+						Path.from_string(val)
+					end.resolve(resolver)
+				end
 			end
 
 			def as_json

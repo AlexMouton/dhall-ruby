@@ -607,6 +607,16 @@ module Dhall
 			selector ::String
 		end)
 
+		def call(value)
+			if record.is_a?(UnionType)
+				type = record.alternatives.fetch(selector)
+				body = Union.from(record, selector, Variable[selector])
+				Function.new(var: selector, type: type, body: body).call(value)
+			else
+				super
+			end
+		end
+
 		def as_json
 			[9, record.as_json, selector]
 		end
@@ -659,9 +669,8 @@ module Dhall
 		end
 
 		def fetch(k, default=nil)
-			if (type = alternatives.fetch(k))
-				body = Union.from(self, k, Variable[k])
-				Function.new(var: k, type: type, body: body).normalize
+			if alternatives.fetch(k)
+				super(k)
 			else
 				Union.from(self, k, nil)
 			end

@@ -52,7 +52,8 @@ module Dhall
 			return normalized.fuse if normalized.fuse
 
 			if normalized.function.is_a?(Builtin) ||
-			   normalized.function.is_a?(Function)
+			   normalized.function.is_a?(Function) ||
+			   normalized.function.is_a?(RecordSelection)
 				return normalized.function.call(normalized.argument)
 			end
 

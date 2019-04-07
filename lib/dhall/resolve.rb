@@ -4,6 +4,7 @@ require "set"
 require "promise.rb"
 
 require "dhall/ast"
+require "dhall/binary"
 require "dhall/util"
 
 module Dhall

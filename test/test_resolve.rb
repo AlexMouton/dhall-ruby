@@ -6,12 +6,9 @@ require "minitest/autorun"
 
 require "dhall/resolve"
 require "dhall/normalize"
-require "dhall/binary"
+require "dhall/parser"
 
 class TestResolve < Minitest::Test
-	DIRPATH = Pathname.new(File.dirname(__FILE__))
-	TESTS = DIRPATH + "normalization/"
-
 	def setup
 		@resolver = Dhall::Resolvers::Default.new(
 			path_reader: lambda do |sources|
@@ -230,19 +227,17 @@ class TestResolve < Minitest::Test
 		assert_equal Dhall::Variable["_"], expr.resolve.sync
 	end
 
-	# Sanity check that all expressions can pass through the resolver
-	Pathname.glob(TESTS + "**/*A.dhallb").each do |path|
-		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhallb$/, "")
-		next if test =~ /prelude\//
-		next if test =~ /remoteSystems/
+	DIRPATH = Pathname.new(File.dirname(__FILE__))
+	TESTS = DIRPATH + "../dhall-lang/tests/normalization/"
 
-		define_method("test_#{test.gsub(/\//, "_")}") do
-			Dhall::Function.disable_alpha_normalization! if test =~ /^standard\//
-			assert_equal(
-				Dhall.from_binary((TESTS + "#{test}B.dhallb").binread),
-				Dhall.from_binary(path.binread).resolve.sync.normalize
-			)
-			Dhall::Function.enable_alpha_normalization! if test =~ /^standard\//
+	# Sanity check that all expressions can pass through the resolver
+	Pathname.glob(TESTS + "**/*A.dhall").each do |path|
+		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhall$/, "")
+		next if test =~ /prelude\/|remoteSystems/
+
+		define_method("test_#{test}") do
+			expr = Dhall::Parser.parse_file(path).value
+			assert_equal expr, expr.resolve.sync
 		end
 	end
 end

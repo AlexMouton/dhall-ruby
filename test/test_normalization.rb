@@ -13,11 +13,10 @@ class TestNormalization < Minitest::Test
 
 	Pathname.glob(TESTS + "success/**/*A.dhall").each do |path|
 		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhall$/, "")
-		next if test =~ /prelude\//
-		next if test =~ /remoteSystems/
-		next if test =~ /multiline\//
 
 		define_method("test_#{test}") do
+			skip "requires resolve" if test =~ /prelude\/|remoteSystems/
+
 			Dhall::Function.disable_alpha_normalization! if test !~ /α/
 			assert_equal(
 				Dhall::Parser.parse_file(TESTS + "#{test}B.dhall").value,

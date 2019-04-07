@@ -12,9 +12,9 @@ class TestTypechecker < Minitest::Test
 
 	Pathname.glob(TESTS + "success/**/*A.dhall").each do |path|
 		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhall$/, "")
-		next if test =~ /prelude/
 
 		define_method("test_#{test}") do
+			skip "needs resolve" if test =~ /prelude/
 			assert_respond_to(
 				Dhall::TypeChecker.for(
 					Dhall::TypeAnnotation.new(

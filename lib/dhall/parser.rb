@@ -19,28 +19,93 @@ module Dhall
 			end
 		end
 
-		def self.operator_expression(capture, ast_class)
-			Module.new do
-				define_method(:value) do
-					captures(capture).map(&:value).reduce do |lhs, rhs|
-						Operator.const_get(ast_class).new(lhs: lhs, rhs: rhs)
-					end
-				end
+		module Expression
+			def value
+				key =
+					[:let_binding, :lambda, :forall, :arrow, :if, :merge]
+					.find { |k| captures.key?(k) }
+
+				return public_send(key) if key
+
+				key =
+					[:empty_collection, :non_empty_optional]
+					.find { |k| captures.key?(k) }
+				key ? capture(key).value : super
+			end
+
+			def let_binding
+				LetBlock.for(
+					lets: captures(:let_binding).map(&:value),
+					body: capture(:expression).value
+				)
+			end
+
+			def lambda
+				Function.new(
+					var:  capture(:nonreserved_label).value,
+					type: captures(:expression)[0].value,
+					body: captures(:expression)[1].value
+				)
+			end
+
+			def forall
+				Forall.new(
+					var:  capture(:nonreserved_label).value,
+					type: captures(:expression)[0].value,
+					body: captures(:expression)[1].value
+				)
+			end
+
+			def arrow
+				Forall.of_arguments(
+					capture(:operator_expression).value,
+					body: capture(:expression).value
+				)
+			end
+
+			def if
+				If.new(
+					predicate: captures(:expression)[0].value,
+					then:      captures(:expression)[1].value,
+					else:      captures(:expression)[2].value
+				)
+			end
+
+			def merge
+				Merge.new(
+					record: captures(:import_expression)[0].value,
+					input:  captures(:import_expression)[1].value,
+					type:   capture(:application_expression)&.value
+				)
 			end
 		end
 
-		ImportAltExpression = operator_expression(:or_expression, :ImportFallback)
-		OrExpression = operator_expression(:plus_expression, :Or)
-		PlusExpression = operator_expression(:text_append_expression, :Plus)
-		TextAppendExpression = operator_expression(:list_append_expression, :TextConcatenate)
-		ListAppendExpression = operator_expression(:and_expression, :ListConcatenate)
-		AndExpression = operator_expression(:combine_expression, :And)
-		CombineExpression = operator_expression(:prefer_expression, :RecursiveRecordMerge)
-		PreferExpression = operator_expression(:combine_types_expression, :RightBiasedRecordMerge)
-		CombineTypesExpression = operator_expression(:times_expression, :RecursiveRecordTypeMerge)
-		TimesExpression = operator_expression(:equal_expression, :Times)
-		EqualExpression = operator_expression(:not_equal_expression, :Equal)
-		NotEqualExpression = operator_expression(:application_expression, :NotEqual)
+		OPERATORS = {
+			import_alt_expression:    :ImportFallback,
+			or_expression:            :Or,
+			plus_expression:          :Plus,
+			text_append_expression:   :TextConcatenate,
+			list_append_expression:   :ListConcatenate,
+			and_expression:           :And,
+			combine_expression:       :RecursiveRecordMerge,
+			prefer_expression:        :RightBiasedRecordMerge,
+			combine_types_expression: :RecursiveRecordTypeMerge,
+			times_expression:         :Times,
+			equal_expression:         :Equal,
+			not_equal_expression:     :NotEqual
+		}.freeze
+
+		OPERATORS.to_a.zip(
+			OPERATORS.to_a[1..-1] + [[:application_expression]]
+		).each do |((rule, ast_class), (next_rule, _))|
+			const_set(rule.to_s.split(/_/).map(&:capitalize).join, Module.new do
+				define_method(:value) do
+					captures(next_rule).map(&:value).reduce do |lhs, rhs|
+						Operator.const_get(ast_class).new(lhs: lhs, rhs: rhs)
+					end
+				end
+			end)
+		end
 
 		module ApplicationExpression
 			def value
@@ -54,20 +119,22 @@ module Dhall
 
 		module SelectorExpression
 			def value
-				record = first.value
-				selectors = matches[1].matches
-				selectors.reduce(record) do |rec, sel|
-					if sel.captures.key?(:labels)
-						sels = sel.capture(:labels).captures(:any_label).map(&:value)
+				record = capture(:primitive_expression).value
+				selectors = captures(:selector).map(&:value).map(&method(:Array))
+				selectors.reduce(record) do |rec, sels|
+					if sels.length == 1
+						RecordSelection.new(record: rec, selector: sels.first)
+					else
 						return EmptyRecordProjection.new(record: rec) if sels.empty?
 						RecordProjection.new(record: rec, selectors: sels)
-					else
-						RecordSelection.new(
-							record:   rec,
-							selector: sel.capture(:any_label).value
-						)
 					end
 				end
+			end
+		end
+
+		module Labels
+			def value
+				captures(:any_label).map(&:value)
 			end
 		end
 
@@ -103,19 +170,29 @@ module Dhall
 			end
 		end
 
-		module DoubleLiteral
+		module NumericDoubleLiteral
 			def value
-				key = captures.keys.select { |k| k.is_a?(Symbol) }.first
-				Double.new(value: case key
-					when :infinity
-						string == "-Infinity" ? -Float::INFINITY : Float::INFINITY
-					when :nan
-						Float::NAN
-					else
-						float = string.to_f
-						raise Citrus::ParseError, input if float.nan? || float.infinite?
-						float
-					end)
+				float = string.to_f
+				raise Citrus::ParseError, input if float.nan? || float.infinite?
+				Double.new(value: float)
+			end
+		end
+
+		module MinusInfinityLiteral
+			def value
+				Double.new(value: -Float::INFINITY)
+			end
+		end
+
+		module PlusInfinityLiteral
+			def value
+				Double.new(value: Float::INFINITY)
+			end
+		end
+
+		module Nan
+			def value
+				Double.new(value: Float::NAN)
 			end
 		end
 
@@ -125,14 +202,24 @@ module Dhall
 					*captures(:double_quote_chunk)
 					.map(&:value)
 					.chunk { |s| s.is_a?(String) }
-					.flat_map do |(is_string, group)|
-						is_string ? group.join : group
+					.flat_map do |(strs, group)|
+						strs ? group.map { |s| s.encode("UTF-16BE") }.join : group
 					end
 				)
 			end
 		end
 
 		module DoubleQuoteChunk
+			def value
+				if captures.key?(:double_quote_escaped)
+					capture(:double_quote_escaped).value
+				else
+					super
+				end
+			end
+		end
+
+		module DoubleQuoteEscaped
 			ESCAPES = {
 				"\"" => "\"",
 				"$"  => "$",
@@ -146,23 +233,15 @@ module Dhall
 			}.freeze
 
 			def value
-				if first&.string == "\\" && matches[1].string =~ /\Au\h+\Z/i
-					[matches[1].string[1..-1]].pack("H*").force_encoding("UTF-16BE")
-				elsif first&.string == "\\"
-					ESCAPES.fetch(matches[1].string) {
-						raise "Invalid escape: #{string}"
-					}.encode("UTF-16BE")
-				elsif first&.string == "${"
-					matches[1].value
-				else
-					string.encode("UTF-16BE")
+				ESCAPES.fetch(string) do
+					[string[1..-1]].pack("H*").force_encoding("UTF-16BE")
 				end
 			end
 		end
 
 		module SingleQuoteLiteral
 			def value
-				chunks = capture(:single_quote_continue).value.flatten
+				chunks = capture(:single_quote_continue).value
 				indent = chunks.join.split(/\n/, -1).map { |line|
 					line.match(/^( *|\t*)/).to_s.length
 				}.min
@@ -176,22 +255,26 @@ module Dhall
 		end
 
 		module SingleQuoteContinue
-			ESCAPES = {
-				"'''"  => "''",
-				"''${" => "${"
-			}.freeze
-
 			def value
-				if matches.length == 2
-					[ESCAPES.fetch(first.string, first.string), matches[1].value]
-				elsif matches.empty?
-					[]
-				else
-					[
-						capture(:complete_expression).value,
-						capture(:single_quote_continue).value
-					]
-				end
+				([first].compact + captures(:single_quote_continue)).flat_map(&:value)
+			end
+		end
+
+		module Interpolation
+			def value
+				capture(:complete_expression).value
+			end
+		end
+
+		module EscapedQuotePair
+			def value
+				"''"
+			end
+		end
+
+		module EscapedInterpolation
+			def value
+				"${"
 			end
 		end
 
@@ -218,101 +301,124 @@ module Dhall
 
 		module PrimitiveExpression
 			def value
-				if first&.string == "("
-					capture(:expression).value
-				elsif first&.string == "{"
-					capture(:record_type_or_literal).value
-				elsif first&.string == "<"
-					capture(:union_type_or_literal).value
+				key = [
+					:complete_expression,
+					:record_type_or_literal,
+					:union_type_or_literal
+				].find { |k| captures.key?(k) }
+				key ? capture(key).value : super
+			end
+		end
+
+		module EmptyUnionType
+			def value
+				UnionType.new(alternatives: {})
+			end
+		end
+
+		module UnionTypeOrLiteralVariantType
+			def value(label)
+				rest = capture(:non_empty_union_type_or_literal)&.value
+				type = UnionType.new(
+					alternatives: { label => capture(:expression)&.value }
+				)
+				if rest.is_a?(Union)
+					rest.with(alternatives: type.merge(rest.alternatives))
 				else
-					super
+					rest ? type.merge(rest) : type
 				end
 			end
 		end
 
-		module UnionTypeOrLiteral
+		module UnionLiteralVariantValue
+			def value(label)
+				Union.new(
+					tag:          label,
+					value:        capture(:expression).value,
+					alternatives: captures(:union_type_entry).map(&:value)
+					              .reduce(UnionType.new(alternatives: {}), &:merge)
+				)
+			end
+		end
+
+		module UnionTypeEntry
 			def value
-				if captures[0].string == ""
-					UnionType.new(alternatives: {})
-				else
-					super
-				end
+				UnionType.new(
+					alternatives: {
+						capture(:any_label).value => capture(:expression)&.value
+					}
+				)
 			end
 		end
 
 		module NonEmptyUnionTypeOrLiteral
 			def value
-				cont = matches[1].first
+				key = [
+					:union_literal_variant_value,
+					:union_type_or_literal_variant_type
+				].find { |k| captures.key?(k) }
 
-				if cont && cont.matches[1].first.string == "="
-					Union.new(
-						tag:          captures(:any_label).first.value,
-						value:        captures(:expression).first.value,
-						alternatives: UnionType.new(alternatives: ::Hash[
-							captures(:any_label)[1..-1].map(&:value).zip(
-								captures(:expression)[1..-1].map(&:value)
-							)
-						])
-					)
+				if key
+					capture(key).value(capture(:any_label).value)
 				else
-					type = UnionType.new(alternatives: ::Hash[
-						captures(:any_label).map(&:value).zip(
-							captures(:expression).map(&:value)
-						)
-					])
-					rest = cont && cont.matches[1].capture(:non_empty_union_type_or_literal)&.value
-					if rest.is_a?(Union)
-						rest.with(alternatives: type.merge(rest.alternatives))
-					elsif rest
-						type.merge(rest)
-					else
-						type
-					end
+					no_alts = UnionType.new(alternatives: {})
+					Union.from(no_alts, capture(:any_label).value, nil)
 				end
 			end
 		end
 
-		module RecordTypeOrLiteral
+		module EmptyRecordLiteral
 			def value
-				if captures[0].string == "="
-					EmptyRecord.new
-				elsif captures[0].string == ""
-					EmptyRecordType.new
-				else
-					super
-				end
+				EmptyRecord.new
+			end
+		end
+
+		module EmptyRecordType
+			def value
+				Dhall::EmptyRecordType.new
 			end
 		end
 
 		module NonEmptyRecordTypeOrLiteral
 			def value
-				if captures.key?(:non_empty_record_literal)
-					capture(:non_empty_record_literal).value(
-						capture(:any_label).value
-					)
-				else
-					capture(:non_empty_record_type).value(
-						capture(:any_label).value
-					)
-				end
+				key = [
+					:non_empty_record_literal,
+					:non_empty_record_type
+				].find { |k| captures.key?(k) }
+
+				capture(key).value(capture(:any_label).value)
 			end
 		end
 
 		module NonEmptyRecordLiteral
 			def value(first_key)
-				keys = [first_key] + captures(:any_label).map(&:value)
-				values = captures(:expression).map(&:value)
-				Record.new(record: ::Hash[keys.zip(values)])
+				Record.new(
+					record: captures(:record_literal_entry).map(&:value).reduce(
+						{ first_key => capture(:expression).value },
+						&:merge
+					)
+				)
+			end
+		end
+
+		module RecordLiteralEntry
+			def value
+				{ capture(:any_label).value => capture(:expression).value }
 			end
 		end
 
 		module NonEmptyRecordType
 			def value(first_key)
-				keys = [first_key] + captures(:any_label).map(&:value)
-				values = captures(:expression).map(&:value)
-				RecordType.new(record: ::Hash[keys.zip(values)])
+				RecordType.new(
+					record: captures(:record_type_entry).map(&:value).reduce(
+						{ first_key => capture(:expression).value },
+						&:merge
+					)
+				)
 			end
 		end
+
+		RecordTypeEntry = RecordLiteralEntry
 
 		module EmptyCollection
 			def value
@@ -335,73 +441,25 @@ module Dhall
 
 		module AnnotatedExpression
 			def value
-				if captures.key?(:empty_collection)
-					capture(:empty_collection).value
-				elsif captures.key?(:non_empty_optional)
-					capture(:non_empty_optional).value
-				elsif matches.length == 2
+				if matches[1].string.empty?
+					first.value
+				else
 					TypeAnnotation.new(
 						value: first.value,
-						type:  matches[1].capture(:expression).value
+						type:  capture(:expression).value
 					)
-				else
-					super
 				end
 			end
 		end
 
-		module Expression
+		module LetBinding
 			def value
-				keys = captures.keys.select { |k| k.is_a?(Symbol) }
-				if keys.length == 1
-					capture(keys.first).value
-				elsif captures.key?(:let)
-					lets = first.matches.map do |let_match|
-						exprs = let_match.captures(:expression)
-						Let.new(
-							var:    let_match.capture(:nonreserved_label).value,
-							assign: exprs.last.value,
-							type:   exprs.length > 1 ? exprs.first.value : nil
-						)
-					end
-
-					if lets.length == 1
-						LetIn.new(let: lets.first, body: matches.last.value)
-					else
-						LetBlock.new(lets: lets, body: matches.last.value)
-					end
-				elsif captures.key?(:lambda)
-					Function.new(
-						var:  capture(:nonreserved_label).value,
-						type: captures(:expression)[0].value,
-						body: captures(:expression)[1].value
-					)
-				elsif captures.key?(:forall)
-					Forall.new(
-						var:  capture(:nonreserved_label).value,
-						type: captures(:expression)[0].value,
-						body: captures(:expression)[1].value
-					)
-				elsif captures.key?(:arrow)
-					Forall.of_arguments(
-						capture(:operator_expression).value,
-						body: capture(:expression).value
-					)
-				elsif captures.key?(:if)
-					If.new(
-						predicate: captures(:expression)[0].value,
-						then:      captures(:expression)[1].value,
-						else:      captures(:expression)[2].value
-					)
-				elsif captures.key?(:merge)
-					Merge.new(
-						record: captures(:import_expression)[0].value,
-						input:  captures(:import_expression)[1].value,
-						type:   capture(:application_expression)&.value
-					)
-				else
-					super
-				end
+				exprs = captures(:expression)
+				Let.new(
+					var:    capture(:nonreserved_label).value,
+					assign: exprs.last.value,
+					type:   exprs.length > 1 ? exprs.first.value : nil
+				)
 			end
 		end
 
@@ -445,9 +503,7 @@ module Dhall
 			def value
 				http = capture(:http_raw)
 				SCHEME.fetch(http.capture(:scheme).value).new(
-					if captures.key?(:import_hashed)
-						capture(:import_hashed).value(Dhall::Import::Expression)
-					end,
+					capture(:import_hashed)&.value(Dhall::Import::Expression),
 					http.capture(:authority).value,
 					*http.capture(:path).captures(:path_component).map(&:value),
 					http.capture(:query)&.value
@@ -487,27 +543,42 @@ module Dhall
 			end
 		end
 
-		module Local
-			KLASS = {
-				"/"  => Dhall::Import::AbsolutePath,
-				"."  => Dhall::Import::RelativePath,
-				".." => Dhall::Import::RelativeToParentPath,
-				"~"  => Dhall::Import::RelativeToHomePath
-			}.freeze
-
+		module AbsolutePath
 			def value
-				path = capture(:path).captures(:path_component).map(&:value)
-				klass = KLASS.find { |prefix, _| string.start_with?(prefix) }.last
-				klass.new(*path)
+				Dhall::Import::AbsolutePath.new(*super)
+			end
+		end
+
+		module HerePath
+			def value
+				Dhall::Import::RelativePath.new(*capture(:path).value)
+			end
+		end
+
+		module ParentPath
+			def value
+				Dhall::Import::RelativeToParentPath.new(*capture(:path).value)
+			end
+		end
+
+		module HomePath
+			def value
+				Dhall::Import::RelativeToHomePath.new(*capture(:path).value)
+			end
+		end
+
+		module Path
+			def value
+				captures(:path_component).map(&:value)
 			end
 		end
 
 		module PathComponent
 			def value(escaper=:itself.to_proc)
-				if captures.key?(:quoted_path_character)
-					escaper.call(matches[1].matches[1].value)
+				if captures.key?(:quoted_path_component)
+					escaper.call(capture(:quoted_path_component).value)
 				else
-					matches[1].value
+					capture(:unquoted_path_component).value
 				end
 			end
 		end

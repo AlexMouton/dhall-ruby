@@ -732,7 +732,7 @@ module Dhall
 			else
 				Application.new(
 					function: selection_syntax,
-					argument: value.respond_to?(:value) ? value.value : value
+					argument: value.is_a?(TypeAnnotation) ? value.value : value
 				)
 			end
 		end

@@ -219,12 +219,12 @@ module Dhall
 	end
 
 	BINARY = {
-		::TrueClass  => ->(e) { Bool.new(value: e) },
-		::FalseClass => ->(e) { Bool.new(value: e) },
-		::Float      => ->(e) { Double.new(value: e) },
-		::String     => ->(e) { Builtins::ALL[e]&.new || Variable.new(name: e) },
-		::Integer    => ->(e) { Variable.new(index: e) },
-		::Array      => lambda { |e|
+		::TrueClass    => ->(e) { Bool.new(value: e) },
+		::FalseClass   => ->(e) { Bool.new(value: e) },
+		::Float        => ->(e) { Double.new(value: e) },
+		::String       => ->(e) { Builtins::ALL[e]&.new || Variable.new(name: e) },
+		::Integer      => ->(e) { Variable.new(index: e) },
+		::Array        => lambda { |e|
 			if e.length == 2 && e.first.is_a?(::String)
 				Variable.new(name: e[0], index: e[1])
 			else
@@ -232,6 +232,11 @@ module Dhall
 				BINARY_TAGS[tag]&.decode(*body) ||
 					(raise "Unknown expression: #{e.inspect}")
 			end
+		},
+		::CBOR::Tagged => lambda { |e|
+			return Dhall.decode(e.value) if e.tag == 55799
+
+			raise "Unknown tag: #{e.inspect}"
 		}
 	}.freeze
 

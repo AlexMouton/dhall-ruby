@@ -70,6 +70,9 @@ Style/StringLiteralsInInterpolation:
 Style/SymbolArray:
   EnforcedStyle: brackets
 
+Style/NumericLiterals:
+  Enabled: false
+
 Style/WordArray:
   EnforcedStyle: brackets
 

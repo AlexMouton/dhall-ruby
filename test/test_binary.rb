@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "base64"
 require "minitest/autorun"
 require "pathname"
 
@@ -18,5 +19,12 @@ class TestBinary < Minitest::Test
 				Dhall.from_binary(path.binread)
 			)
 		end
+	end
+
+	def test_self_describing_cbor
+		assert_equal(
+			Dhall::Variable["x"],
+			Dhall.from_binary(Base64.decode64("2dn3YXg"))
+		)
 	end
 end

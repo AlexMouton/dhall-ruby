@@ -18,7 +18,7 @@ module Dhall
 					x.map(&block)
 				end,
 				ExpressionHash                => lambda do |x|
-					Hash[x.map { |k, v| [k, v.nil? ? v : block[v]] }]
+					Hash[x.map { |k, v| [k, v.nil? ? v : block[v]] }.sort]
 				end
 			)
 		end

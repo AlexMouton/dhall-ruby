@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
-require "set"
+require "pathname"
 require "promise.rb"
+require "set"
 
 require "dhall/ast"
 require "dhall/binary"
@@ -15,13 +16,36 @@ module Dhall
 	module Resolvers
 		ReadPathSources = lambda do |sources|
 			sources.map do |source|
-				Promise.resolve(nil).then { source.pathname.read }
+				Promise.resolve(nil).then { source.pathname.binread }
 			end
 		end
 
-		ReadHttpSources = lambda do |sources|
+		PreflightCORS = lambda do |source, parent_origin|
+			uri = source.uri
+			if parent_origin != "localhost" && parent_origin != source.origin
+				req = Net::HTTP::Options.new(uri)
+				req["Origin"] = parent_origin
+				req["Access-Control-Request-Method"] = "GET"
+				req["Access-Control-Request-Headers"] =
+					source.headers.map { |h| h.fetch("header").to_s }.join(",")
+				r = Net::HTTP.start(
+					uri.hostname,
+					uri.port,
+					use_ssl: uri.scheme == "https"
+				) { |http| http.request(req) }
+
+				raise ImportFailedException, source if r.code != "200"
+				unless r["Access-Control-Allow-Origin"] == parent_origin ||
+				       r["Access-Control-Allow-Origin"] == "*"
+					raise ImportBannedException, source
+				end
+			end
+		end
+
+		ReadHttpSources = lambda do |sources, parent_origin|
 			sources.map do |source|
 				Promise.resolve(nil).then do
+					PreflightCORS.call(source, parent_origin)
 					uri = source.uri
 					req = Net::HTTP::Get.new(uri)
 					source.headers.each do |header|
@@ -58,6 +82,10 @@ module Dhall
 				@public_gateway = public_gateway
 			end
 
+			def arity
+				1
+			end
+
 			def call(sources)
 				@path_reader.call(sources).map.with_index do |promise, idx|
 					source = sources[idx]
@@ -80,21 +108,19 @@ module Dhall
 				promise.catch {
 					@http_reader.call([
 						source.to_uri(Import::Http, "localhost:8000")
-					]).first
+					], "localhost").first
 				}.catch do
 					@https_reader.call([
 						source.to_uri(Import::Https, @public_gateway)
-					]).first
+					], "localhost").first
 				end
 			end
 		end
 
 		class ResolutionSet
-			attr_reader :reader
-
 			def initialize(reader)
 				@reader = reader
-				@parents = Set.new
+				@parents = []
 				@set = Hash.new { |h, k| h[k] = [] }
 			end
 
@@ -111,6 +137,16 @@ module Dhall
 			def resolutions
 				sources, promises = @set.to_a.transpose
 				[Array(sources), Array(promises)]
+			end
+
+			def reader
+				lambda do |sources|
+					if @reader.arity == 2
+						@reader.call(sources, @parents.last&.origin || "localhost")
+					else
+						@reader.call(sources)
+					end
+				end
 			end
 
 			def child(parent_source)
@@ -132,6 +168,15 @@ module Dhall
 				@path_resolutions = ResolutionSet.new(path_reader)
 				@http_resolutions = ResolutionSet.new(http_reader)
 				@https_resolutions = ResolutionSet.new(https_reader)
+				@cache = {}
+			end
+
+			def cache_fetch(key, &fallback)
+				@cache.fetch(key) do
+					Promise.resolve(nil).then(&fallback).then do |result|
+						@cache[key] = result
+					end
+				end
 			end
 
 			def resolve_path(path_source)
@@ -139,9 +184,10 @@ module Dhall
 			end
 
 			def resolve_http(http_source)
-				ExpressionResolver
-					.for(http_source.headers)
-					.resolve(self).then do |headers|
+				http_source.headers.resolve(
+					resolver:    self,
+					relative_to: Dhall::Import::RelativePath.new
+				).then do |headers|
 					@http_resolutions.register(
 						http_source.with(headers: headers.normalize)
 					)
@@ -149,9 +195,10 @@ module Dhall
 			end
 
 			def resolve_https(https_source)
-				ExpressionResolver
-					.for(https_source.headers)
-					.resolve(self).then do |headers|
+				https_source.headers.resolve(
+					resolver:    self,
+					relative_to: Dhall::Import::RelativePath.new
+				).then do |headers|
 					@https_resolutions.register(
 						https_source.with(headers: headers.normalize)
 					)
@@ -236,10 +283,10 @@ module Dhall
 			@expr = expr
 		end
 
-		def resolve(resolver)
+		def resolve(**kwargs)
 			Util.promise_all_hash(
 				@expr.to_h.each_with_object({}) { |(attr, value), h|
-					h[attr] = ExpressionResolver.for(value).resolve(resolver)
+					h[attr] = ExpressionResolver.for(value).resolve(**kwargs)
 				}
 			).then { |h| @expr.with(h) }
 		end
@@ -247,13 +294,21 @@ module Dhall
 		class ImportResolver < ExpressionResolver
 			register_for Import
 
-			def resolve(resolver)
-				@expr.instance_eval do
-					@path.resolve(resolver).then do |result|
-						@integrity_check.check(
-							@import_type.call(result)
-						).resolve(resolver.child(@path))
+			def resolve(resolver:, relative_to:)
+				Promise.resolve(nil).then do
+					resolver.cache_fetch(@expr.cache_key(relative_to)) do
+						resolve_raw(resolver: resolver, relative_to: relative_to)
 					end
+				end
+			end
+
+			def resolve_raw(resolver:, relative_to:)
+				real_path = @expr.real_path(relative_to)
+				real_path.resolve(resolver).then do |result|
+					@expr.parse_and_check(result).resolve(
+						resolver:    resolver.child(real_path),
+						relative_to: real_path
+					)
 				end
 			end
 		end
@@ -261,25 +316,32 @@ module Dhall
 		class FallbackResolver < ExpressionResolver
 			register_for Operator::ImportFallback
 
-			def resolve(resolver)
-				ExpressionResolver.for(@expr.lhs).resolve(resolver).catch do
-					ExpressionResolver.for(@expr.rhs).resolve(resolver)
+			def resolve(**kwargs)
+				ExpressionResolver.for(@expr.lhs).resolve(**kwargs).catch do
+					ExpressionResolver.for(@expr.rhs).resolve(**kwargs)
 				end
 			end
 		end
 
 		class ArrayResolver < ExpressionResolver
-			def resolve(resolver)
+			register_for Util::ArrayOf.new(Expression)
+
+			def resolve(**kwargs)
 				Promise.all(
-					@expr.map { |e| ExpressionResolver.for(e).resolve(resolver) }
+					@expr.map { |e| ExpressionResolver.for(e).resolve(**kwargs) }
 				)
 			end
 		end
 
 		class HashResolver < ExpressionResolver
-			def resolve(resolver)
+			register_for Util::HashOf.new(
+				ValueSemantics::Anything,
+				ValueSemantics::Either.new([Expression, nil])
+			)
+
+			def resolve(**kwargs)
 				Util.promise_all_hash(Hash[@expr.map do |k, v|
-					[k, ExpressionResolver.for(v).resolve(resolver)]
+					[k, ExpressionResolver.for(v).resolve(**kwargs)]
 				end])
 			end
 		end
@@ -296,8 +358,14 @@ module Dhall
 	end
 
 	class Expression
-		def resolve(resolver=Resolvers::Default.new)
-			p = ExpressionResolver.for(self).resolve(resolver)
+		def resolve(
+			resolver: Resolvers::Default.new,
+			relative_to: Import::Path.from_string(Pathname.pwd + "file")
+		)
+			p = ExpressionResolver.for(self).resolve(
+				resolver:    resolver,
+				relative_to: relative_to
+			)
 			resolver.finish!
 			p
 		end

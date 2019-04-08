@@ -805,6 +805,10 @@ module Dhall
 			[Double.new(value: other.to_f), self]
 		end
 
+		def eql?(other)
+			other.is_a?(Double) && to_cbor == other.to_cbor
+		end
+
 		def single?
 			[value].pack("g").unpack("g").first == value
 		end
@@ -898,11 +902,12 @@ module Dhall
 			end
 
 			def check(expr)
-				if @protocol != :nocheck && expr.cache_key != to_s
-					raise FailureException, "#{expr} does not match #{self}"
-				end
+				return expr if @protocol == :nocheck
 
-				expr
+				expr = expr.normalize
+				return expr if expr.cache_key == to_s
+
+				raise FailureException, "#{expr} does not match #{self}"
 			end
 
 			def as_json
@@ -936,10 +941,10 @@ module Dhall
 
 			def with(hash)
 				self.class.new(
-					hash.fetch(:headers),
-					authority,
-					*path,
-					query
+					hash.fetch(:headers, headers),
+					hash.fetch(:authority, authority),
+					*hash.fetch(:path, path),
+					hash.fetch(:query, query)
 				)
 			end
 
@@ -958,7 +963,35 @@ module Dhall
 			end
 
 			def uri
-				URI("#{scheme}://#{authority}/#{path.join("/")}?#{query}")
+				escaped_path = path.map do |c|
+					::URI.encode_www_form_component(c).gsub("+", "%20")
+				end
+				URI("#{scheme}://#{authority}/#{escaped_path.join("/")}?#{query}")
+			end
+
+			def chain_onto(relative_to)
+				if headers.is_a?(Import)
+					with(headers: headers.with(path: headers.real_path(relative_to)))
+				else
+					self
+				end
+			end
+
+			def canonical
+				with(
+					path: (path[1..-1] + [""])
+					.reduce([[], path.first]) { |(pth, prev), c|
+						c == ".." ? [pth, prev] : [pth + [prev], c]
+					}.first.reject { |c| c == "." }
+				)
+			end
+
+			def origin
+				"#{scheme}://#{authority}"
+			end
+
+			def to_s
+				uri.to_s
 			end
 
 			def as_json
@@ -995,8 +1028,12 @@ module Dhall
 				super(path: path)
 			end
 
+			def with(path:)
+				self.class.new(*path)
+			end
+
 			def self.from_string(s)
-				parts = s.split(/\//)
+				parts = s.to_s.split(/\//)
 				if parts.first == ""
 					AbsolutePath.new(*parts[1..-1])
 				elsif parts.first == "~"
@@ -1006,8 +1043,16 @@ module Dhall
 				end
 			end
 
+			def canonical
+				self.class.from_string(pathname.cleanpath)
+			end
+
 			def resolve(resolver)
 				resolver.resolve_path(self)
+			end
+
+			def origin
+				"localhost"
 			end
 
 			def to_s
@@ -1027,11 +1072,25 @@ module Dhall
 			def to_uri(scheme, authority)
 				scheme.new(nil, authority, *path, nil)
 			end
+
+			def chain_onto(relative_to)
+				if relative_to.is_a?(URI)
+					raise ImportBannedException, "remote import cannot import #{self}"
+				end
+
+				self
+			end
 		end
 
 		class RelativePath < Path
 			def pathname
 				Pathname.new(".").join(*path)
+			end
+
+			def chain_onto(relative_to)
+				relative_to.with(
+					path: relative_to.path[0..-2] + path
+				)
 			end
 		end
 
@@ -1039,11 +1098,25 @@ module Dhall
 			def pathname
 				Pathname.new("..").join(*path)
 			end
+
+			def chain_onto(relative_to)
+				relative_to.with(
+					path: relative_to.path[0..-2] + [".."] + path
+				)
+			end
 		end
 
 		class RelativeToHomePath < Path
 			def pathname
 				Pathname.new("~").join(*@path)
+			end
+
+			def chain_onto(*)
+				if relative_to.is_a?(URI)
+					raise ImportBannedException, "remote import cannot import #{self}"
+				end
+
+				self
 			end
 		end
 
@@ -1070,21 +1143,41 @@ module Dhall
 				@var = var
 			end
 
-			def value
-				ENV.fetch(@var)
+			def chain_onto(relative_to)
+				if relative_to.is_a?(URI)
+					raise ImportBannedException, "remote import cannot import #{self}"
+				end
+
+				real_path.chain_onto(relative_to)
+			end
+
+			def canonical
+				real_path.canonical
+			end
+
+			def real_path
+				val = ENV.fetch(@var) do
+					raise ImportFailedException, "No #{self}"
+				end
+				if val =~ /\Ahttps?:\/\//
+					URI.from_uri(URI(val))
+				else
+					Path.from_string(val)
+				end
 			end
 
 			def resolve(resolver)
 				Promise.resolve(nil).then do
-					val = ENV.fetch(@var) do
-						raise ImportFailedException, "No ENV #{@var}"
-					end
-					if val =~ /\Ahttps?:\/\//
-						URI.from_uri(URI(value))
-					else
-						Path.from_string(val)
-					end.resolve(resolver)
+					real_path.resolve(resolver)
 				end
+			end
+
+			def origin
+				"localhost"
+			end
+
+			def to_s
+				"env:#{as_json}"
 			end
 
 			def as_json
@@ -1095,8 +1188,22 @@ module Dhall
 		end
 
 		class MissingImport
+			def chain_onto(*)
+				self
+			end
+
+			def canonical
+				self
+			end
+
 			def resolve(*)
 				Promise.new.reject(ImportFailedException.new("missing"))
+			end
+
+			def origin; end
+
+			def to_s
+				"missing"
 			end
 
 			def as_json
@@ -1139,6 +1246,30 @@ module Dhall
 				import_type:     import_type,
 				path:            path
 			)
+		end
+
+		def with(options)
+			self.class.new(
+				options.fetch(:integrity_check, integrity_check),
+				options.fetch(:import_type, import_type),
+				options.fetch(:path, path)
+			)
+		end
+
+		def real_path(relative_to)
+			path.chain_onto(relative_to).canonical
+		end
+
+		def parse_and_check(raw)
+			integrity_check.check(import_type.call(raw))
+		end
+
+		def cache_key(relative_to)
+			if integrity_check.protocol == :nocheck
+				real_path(relative_to).to_s
+			else
+				integrity_check.to_s
+			end
 		end
 
 		def as_json

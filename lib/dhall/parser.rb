@@ -497,18 +497,23 @@ module Dhall
 				"https" => Dhall::Import::Https
 			}.freeze
 
-			def self.escape(s)
-				URI.encode_www_form_component(s).gsub("+", "%20")
-			end
-
 			def value
 				http = capture(:http_raw)
 				SCHEME.fetch(http.capture(:scheme).value).new(
 					capture(:import_hashed)&.value(Dhall::Import::Expression),
 					http.capture(:authority).value,
-					*http.capture(:path).captures(:path_component).map(&:value),
+					*unescaped_components,
 					http.capture(:query)&.value
 				)
+			end
+
+			def unescaped_components
+				capture(:http_raw)
+					.capture(:path)
+					.captures(:path_component)
+					.map do |pc|
+						pc.value(URI.method(:unescape))
+					end
 			end
 		end
 
@@ -575,11 +580,11 @@ module Dhall
 		end
 
 		module PathComponent
-			def value(escaper=:itself.to_proc)
+			def value(unescaper=:itself.to_proc)
 				if captures.key?(:quoted_path_component)
-					escaper.call(capture(:quoted_path_component).value)
+					capture(:quoted_path_component).value
 				else
-					capture(:unquoted_path_component).value
+					unescaper.call(capture(:unquoted_path_component).value)
 				end
 			end
 		end

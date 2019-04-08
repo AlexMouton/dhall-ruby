@@ -8,6 +8,7 @@ require "dhall"
 
 class TestResolve < Minitest::Test
 	def setup
+		@relative_to = Dhall::Import::RelativePath.new
 		@resolver = Dhall::Resolvers::Default.new(
 			path_reader: lambda do |sources|
 				sources.map do |source|
@@ -28,13 +29,17 @@ class TestResolve < Minitest::Test
 		)
 	end
 
+	def subject(expr)
+		expr.resolve(resolver: @resolver, relative_to: @relative_to).sync
+	end
+
 	def test_nothing_to_resolve
 		expr = Dhall::Function.of_arguments(
 			Dhall::Variable["Natural"],
 			body: Dhall::Variable["_"]
 		)
 
-		assert_equal expr, expr.resolve(Dhall::Resolvers::None.new).sync
+		assert_equal expr, expr.resolve(resolver: Dhall::Resolvers::None.new).sync
 	end
 
 	def test_import_as_text
@@ -44,10 +49,7 @@ class TestResolve < Minitest::Test
 			Dhall::Import::RelativePath.new("text")
 		)
 
-		assert_equal(
-			Dhall::Text.new(value: "hai"),
-			expr.resolve(@resolver).sync
-		)
+		assert_equal Dhall::Text.new(value: "hai"), subject(expr)
 	end
 
 	def test_one_level_to_resolve
@@ -60,10 +62,7 @@ class TestResolve < Minitest::Test
 			)
 		)
 
-		assert_equal(
-			expr.with(body: Dhall::Variable["_"]),
-			expr.resolve(@resolver).sync
-		)
+		assert_equal expr.with(body: Dhall::Variable["_"]), subject(expr)
 	end
 
 	def test_two_levels_to_resolve
@@ -76,10 +75,7 @@ class TestResolve < Minitest::Test
 			)
 		)
 
-		assert_equal(
-			expr.with(body: Dhall::Variable["_"]),
-			expr.resolve(@resolver).sync
-		)
+		assert_equal expr.with(body: Dhall::Variable["_"]), subject(expr)
 	end
 
 	def test_self_loop
@@ -93,7 +89,7 @@ class TestResolve < Minitest::Test
 		)
 
 		assert_raises Dhall::ImportLoopException do
-			expr.resolve(@resolver).sync
+			subject(expr)
 		end
 	end
 
@@ -108,7 +104,7 @@ class TestResolve < Minitest::Test
 		)
 
 		assert_raises Dhall::ImportLoopException do
-			expr.resolve(@resolver).sync
+			subject(expr)
 		end
 	end
 
@@ -124,7 +120,7 @@ class TestResolve < Minitest::Test
 				lhs: Dhall::Text.new(value: "hai"),
 				rhs: Dhall::Text.new(value: "hai")
 			),
-			expr.resolve(@resolver).sync
+			subject(expr)
 		)
 	end
 
@@ -136,7 +132,7 @@ class TestResolve < Minitest::Test
 		)
 
 		assert_raises Dhall::ImportFailedException do
-			expr.resolve(@resolver).sync
+			subject(expr)
 		end
 	end
 
@@ -148,7 +144,7 @@ class TestResolve < Minitest::Test
 		)
 
 		assert_raises Dhall::Import::IntegrityCheck::FailureException do
-			expr.resolve(@resolver).sync
+			subject(expr)
 		end
 	end
 
@@ -162,7 +158,10 @@ class TestResolve < Minitest::Test
 			rhs: Dhall::Variable["fallback"]
 		)
 
-		assert_equal Dhall::Variable["fallback"], expr.resolve(@resolver).sync
+		assert_equal(
+			Dhall::Variable["fallback"],
+			subject(expr)
+		)
 	end
 
 	def test_fallback_to_import
@@ -179,7 +178,7 @@ class TestResolve < Minitest::Test
 			)
 		)
 
-		assert_equal Dhall::Variable["_"], expr.resolve(@resolver).sync
+		assert_equal Dhall::Variable["_"], subject(expr)
 	end
 
 	def test_headers
@@ -193,7 +192,7 @@ class TestResolve < Minitest::Test
 			Dhall::Import::RelativePath.new("using")
 		)
 
-		assert_equal Dhall::Variable["_"], expr.resolve(@resolver).sync
+		assert_equal Dhall::Variable["_"], subject(expr)
 	end
 
 	def test_ipfs
@@ -226,10 +225,43 @@ class TestResolve < Minitest::Test
 	end
 
 	DIRPATH = Pathname.new(File.dirname(__FILE__))
-	TESTS = DIRPATH + "../dhall-lang/tests/normalization/"
+	TESTS = DIRPATH + "../dhall-lang/tests/import/"
+
+	Pathname.glob(TESTS + "success/**/*A.dhall").each do |path|
+		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhall$/, "")
+
+		define_method("test_#{test}") do
+			assert_equal(
+				Dhall::Parser.parse_file(TESTS + "#{test}B.dhall").value,
+				Dhall::Parser.parse_file(path).value.resolve(
+					relative_to: Dhall::Import::Path.from_string(path)
+				).sync
+			)
+		end
+	end
+
+	Pathname.glob(TESTS + "failure/**/*.dhall").each do |path|
+		test = path.relative_path_from(TESTS).to_s.sub(/\.dhall$/, "")
+
+		define_method("test_#{test}") do
+			stub_request(
+				:get,
+				"https://raw.githubusercontent.com/dhall-lang/dhall-lang/" \
+				"master/tests/import/data/referentiallyOpaque.dhall"
+			).to_return(status: 200, body: "env:HOME as Text")
+
+			assert_raises Dhall::ImportFailedException do
+				Dhall::Parser.parse_file(path).value.resolve(
+					relative_to: Dhall::Import::Path.from_string(path)
+				).sync
+			end
+		end
+	end
+
+	NTESTS = DIRPATH + "../dhall-lang/tests/normalization/"
 
 	# Sanity check that all expressions can pass through the resolver
-	Pathname.glob(TESTS + "**/*A.dhall").each do |path|
+	Pathname.glob(NTESTS + "**/*A.dhall").each do |path|
 		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhall$/, "")
 		next if test =~ /prelude\/|remoteSystems/
 

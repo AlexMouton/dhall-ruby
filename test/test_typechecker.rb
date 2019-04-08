@@ -90,4 +90,20 @@ class TestTypechecker < Minitest::Test
 			).annotate(context).type
 		)
 	end
+
+	def test_unknown_expression
+		assert_raises TypeError do
+			Dhall::TypeChecker.for(Class.new.new).annotate(
+				Dhall::TypeChecker::Context.new
+			)
+		end
+	end
+
+	def test_unknown_builtin
+		assert_raises TypeError do
+			Dhall::TypeChecker.for(Class.new(Dhall::Builtin).new).annotate(
+				Dhall::TypeChecker::Context.new
+			)
+		end
+	end
 end

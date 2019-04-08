@@ -27,7 +27,7 @@ module Dhall
 			if (unfilled = unfill).class != self.class
 				unfilled.as_json
 			else
-				self.class.name.split(/::/).last.tr("_", "/")
+				self.class.name&.split(/::/)&.last&.tr("_", "/").to_s
 			end
 		end
 

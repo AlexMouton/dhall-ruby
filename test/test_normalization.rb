@@ -3,9 +3,7 @@
 require "minitest/autorun"
 require "pathname"
 
-require "dhall/ast"
-require "dhall/parser"
-require "dhall/normalize"
+require "dhall"
 
 class TestNormalization < Minitest::Test
 	DIRPATH = Pathname.new(File.dirname(__FILE__))
@@ -15,12 +13,12 @@ class TestNormalization < Minitest::Test
 		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhall$/, "")
 
 		define_method("test_#{test}") do
-			skip "requires resolve" if test =~ /prelude\/|remoteSystems/
-
 			Dhall::Function.disable_alpha_normalization! if test !~ /α/
 			assert_equal(
-				Dhall::Parser.parse_file(TESTS + "#{test}B.dhall").value,
-				Dhall::Parser.parse_file(path).value.normalize
+				Dhall::Parser.parse_file(TESTS + "#{test}B.dhall").value.to_binary,
+				Dhall::Parser.parse_file(path).value.resolve(
+					relative_to: Dhall::Import::Path.from_string(path)
+				).then(&:normalize).sync.to_binary
 			)
 			Dhall::Function.enable_alpha_normalization! if test !~ /α/
 		end

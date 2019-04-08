@@ -303,6 +303,15 @@ module Dhall
 	end
 
 	class Union
+		def normalize
+			val = if value.is_a?(TypeAnnotation)
+				value.with(ExpressionVisitor.new(&:normalize).visit(value))
+			else
+				value&.normalize
+			end
+
+			with(value: val, alternatives: alternatives.normalize)
+		end
 	end
 
 	class If

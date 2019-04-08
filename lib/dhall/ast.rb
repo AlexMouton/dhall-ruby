@@ -609,11 +609,9 @@ module Dhall
 
 		def call(value)
 			if record.is_a?(UnionType)
-				type = record.alternatives.fetch(selector)
-				body = Union.from(record, selector, Variable[selector])
-				Function.new(var: selector, type: type, body: body).call(value)
+				record.get_constructor(selector).call(value)
 			else
-				super
+				Application.new(function: self, argument: value)
 			end
 		end
 
@@ -678,6 +676,12 @@ module Dhall
 			block_given? ? yield : (default || raise)
 		end
 
+		def get_constructor(selector)
+			type = alternatives.fetch(selector)
+			body = Union.from(self, selector, Variable[selector])
+			Function.new(var: selector, type: type, body: body)
+		end
+
 		def constructor_types
 			alternatives.each_with_object({}) do |(k, type), ctypes|
 				ctypes[k] = Forall.new(var: k, type: type, body: self)
@@ -709,8 +713,32 @@ module Dhall
 			)
 		end
 
+		def selection_syntax
+			RecordSelection.new(
+				record:   alternatives.merge(
+					UnionType.new(alternatives: { tag => value&.type })
+				),
+				selector: tag
+			)
+		end
+
+		def syntax
+			if value.nil?
+				selection_syntax
+			else
+				Application.new(
+					function: selection_syntax,
+					argument: value.respond_to?(:value) ? value.value : value
+				)
+			end
+		end
+
 		def as_json
-			[12, tag, value.as_json, alternatives.as_json.last]
+			if value.nil? || value.respond_to?(:type)
+				syntax.as_json
+			else
+				[12, tag, value&.as_json, alternatives.as_json.last]
+			end
 		end
 	end
 

@@ -3,8 +3,7 @@
 require "minitest/autorun"
 require "pathname"
 
-require "dhall/typecheck"
-require "dhall/parser"
+require "dhall"
 
 class TestTypechecker < Minitest::Test
 	DIRPATH = Pathname.new(File.dirname(__FILE__))
@@ -12,14 +11,18 @@ class TestTypechecker < Minitest::Test
 
 	Pathname.glob(TESTS + "success/**/*A.dhall").each do |path|
 		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhall$/, "")
+		bside = TESTS + "#{test}B.dhall"
 
 		define_method("test_#{test}") do
-			skip "needs resolve" if test =~ /prelude/
 			assert_respond_to(
 				Dhall::TypeChecker.for(
 					Dhall::TypeAnnotation.new(
-						value: Dhall::Parser.parse_file(path).value,
-						type:  Dhall::Parser.parse_file(TESTS + "#{test}B.dhall").value
+						value: Dhall::Parser.parse_file(path).value.resolve(
+							relative_to: Dhall::Import::Path.from_string(path)
+						).sync,
+						type:  Dhall::Parser.parse_file(bside).value.resolve(
+							relative_to: Dhall::Import::Path.from_string(bside)
+						).sync
 					)
 				).annotate(Dhall::TypeChecker::Context.new),
 				:type

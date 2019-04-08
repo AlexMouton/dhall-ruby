@@ -32,7 +32,7 @@ module Dhall
 				end
 			end
 
-			raise TypeError, "Unknown expression: #{expr}"
+			raise TypeError, "Unknown expression: #{expr.inspect}"
 		end
 
 		def self.register(typechecker, node_type, *extras)
@@ -386,7 +386,7 @@ module Dhall
 				                        "EmptyList element type not of type Type",
 				                        context: context
 
-				@expr
+				Dhall::TypeAnnotation.new(type: @expr.type, value: @expr)
 			end
 		end
 
@@ -402,8 +402,9 @@ module Dhall
 					@alist = alist
 				end
 
-				def list
-					@alist.with(element_type: element_type)
+				def annotation
+					list = @alist.with(element_type: element_type)
+					Dhall::TypeAnnotation.new(type: list.type, value: list)
 				end
 
 				def element_type
@@ -427,7 +428,7 @@ module Dhall
 				TypeChecker.assert_type alist.element_type, Dhall::Variable["Type"],
 				                        "List type not of type Type", context: context
 
-				alist.list
+				alist.annotation
 			end
 		end
 
@@ -445,7 +446,7 @@ module Dhall
 					"OptionalNone element type not of type Type"
 				)
 
-				@expr
+				Dhall::TypeAnnotation.new(type: @expr.type, value: @expr)
 			end
 		end
 
@@ -457,7 +458,7 @@ module Dhall
 			end
 
 			def annotate(context)
-				asome = @some.map(type: @some.value_type) do |el|
+				asome = @some.map do |el|
 					TypeChecker.for(el).annotate(context)
 				end
 				some = asome.with(value_type: asome.value.type)
@@ -466,7 +467,7 @@ module Dhall
 				TypeChecker.assert type_type, Dhall::Variable["Type"],
 				                   "Some type not of type Type, was: #{type_type}"
 
-				some
+				Dhall::TypeAnnotation.new(type: some.type, value: some)
 			end
 		end
 
@@ -494,7 +495,7 @@ module Dhall
 			end
 
 			def annotate(context)
-				kinds = @type.record.values.map do |mtype|
+				kinds = @type.record.values.compact.map do |mtype|
 					TypeChecker.for(mtype).annotate(context).type
 				end
 
@@ -663,20 +664,17 @@ module Dhall
 
 					TypeChecker.assert @type, Dhall::RecordType,
 					                   "Merge expected Record got: #{@type}"
-
-					@type.record.values.each do |htype|
-						TypeChecker.assert htype, Dhall::Forall,
-						                   "Merge handlers must all be functions"
-					end
 				end
 
 				def output_type(output_annotation=nil)
 					@type.record.values.reduce(output_annotation) do |type_acc, htype|
-						if type_acc && htype.body.normalize != type_acc.normalize
+						htype = htype.body.shift(-1, htype.var, 0) if htype.is_a?(Dhall::Forall)
+
+						if type_acc && htype.normalize != type_acc.normalize
 							raise TypeError, "Handler output types must all match"
 						end
 
-						htype.body.shift(-1, htype.var, 0)
+						htype
 					end
 				end
 
@@ -684,10 +682,14 @@ module Dhall
 					@type.record.keys
 				end
 
-				def fetch(k)
-					@type.record.fetch(k) do
+				def fetch_input_type(k)
+					type = @type.record.fetch(k) do
 						raise TypeError, "No merge handler for alternative: #{k}"
 					end
+
+					TypeChecker.assert type, Dhall::Forall, "Handler is not a function"
+
+					type.type
 				end
 			end
 
@@ -733,8 +735,8 @@ module Dhall
 					                   "Merge handlers unknown alternatives: #{extras}"
 
 					@union.type.alternatives.each do |k, atype|
-						TypeChecker.assert(
-							@handlers.fetch(k).type,
+						atype.nil? || TypeChecker.assert(
+							@handlers.fetch_input_type(k),
 							atype,
 							"Handler argument does not match alternative type: #{atype}"
 						)

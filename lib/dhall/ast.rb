@@ -402,7 +402,7 @@ module Dhall
 		end
 
 		def map(type: nil, &block)
-			with(value: block[value], value_type: value_type)
+			with(value: block[value], value_type: type)
 		end
 
 		def reduce(_, &block)
@@ -420,7 +420,7 @@ module Dhall
 		end)
 
 		def map(type: nil)
-			type.nil? ? self : with(value_type: value_type)
+			type.nil? ? self : with(value_type: type)
 		end
 
 		def reduce(z)
@@ -684,7 +684,11 @@ module Dhall
 
 		def constructor_types
 			alternatives.each_with_object({}) do |(k, type), ctypes|
-				ctypes[k] = Forall.new(var: k, type: type, body: self)
+				ctypes[k] = if type.nil?
+					self
+				else
+					Forall.new(var: k, type: type, body: self)
+				end
 			end
 		end
 

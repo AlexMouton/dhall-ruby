@@ -14,7 +14,7 @@
 		{ build =
 			''
 			cd dhall-ruby
-			rubocop
+			make lint
 			bundle install --path="../.gems"
 			make test
 			''

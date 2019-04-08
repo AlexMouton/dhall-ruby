@@ -3,9 +3,7 @@
 require "minitest/autorun"
 require "pathname"
 
-require "dhall/binary"
-require "dhall/parser"
-require "dhall/normalize"
+require "dhall"
 
 class TestCacheKey < Minitest::Test
 	DIRPATH = Pathname.new(File.dirname(__FILE__))
@@ -14,11 +12,11 @@ class TestCacheKey < Minitest::Test
 	Pathname.glob(TESTS + "**/*A.dhall").each do |path|
 		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhall$/, "")
 		define_method("test_#{test}") do
-			skip "requires resolve" if test =~ /prelude\/|remoteSystems/
-
 			assert_equal(
 				(TESTS + "#{test}B.hash").read.chomp,
-				Dhall::Parser.parse_file(path).value.cache_key
+				Dhall::Parser.parse_file(path).value.resolve(
+					relative_to: Dhall::Import::Path.from_string(path)
+				).then(&:cache_key).sync
 			)
 		end
 	end

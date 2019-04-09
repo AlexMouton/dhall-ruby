@@ -1,6 +1,17 @@
 # frozen_string_literal: true
 
+require "dhall/as_dhall"
+require "dhall/ast"
+require "dhall/binary"
+require "dhall/builtins"
+require "dhall/normalize"
+require "dhall/parser"
+require "dhall/resolve"
+require "dhall/typecheck"
+
 module Dhall
+	using Dhall::AsDhall
+
 	def self.load(source, resolver: Resolvers::Default.new)
 		Promise.resolve(nil).then {
 			load_raw(source).resolve(resolver: resolver)
@@ -19,13 +30,8 @@ module Dhall
 
 		Parser.parse(source.encode("UTF-8")).value
 	end
-end
 
-require "dhall/as_dhall"
-require "dhall/ast"
-require "dhall/binary"
-require "dhall/builtins"
-require "dhall/normalize"
-require "dhall/parser"
-require "dhall/resolve"
-require "dhall/typecheck"
+	def self.dump(o)
+		CBOR.encode(o.as_dhall)
+	end
+end

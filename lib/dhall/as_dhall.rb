@@ -158,7 +158,11 @@ module Dhall
 				if empty?
 					EmptyRecord.new
 				else
-					Record.new(record: Hash[map { |k, v| [k.to_s, v.as_dhall] }.sort])
+					Record.new(record: Hash[
+						reject { |_, v| v.nil? }
+						.map { |k, v| [k.to_s, v.as_dhall] }
+						.sort
+					])
 				end
 			end
 		end

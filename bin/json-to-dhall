@@ -1,0 +1,8 @@
+#!/usr/bin/ruby
+# frozen_string_literal: true
+
+require "dhall"
+require "json"
+using Dhall::AsDhall
+
+STDOUT.write(CBOR.encode(JSON.parse(STDIN.read).as_dhall))

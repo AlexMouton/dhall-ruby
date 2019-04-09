@@ -1,6 +1,14 @@
 # frozen_string_literal: true
 
 module Dhall
+	def self.load(source, resolver: Resolvers::Default.new)
+		Promise.resolve(nil).then {
+			load_raw(source).resolve(resolver: resolver)
+		}.then do |resolved|
+			TypeChecker.for(resolved).annotate(TypeChecker::Context.new).normalize
+		end
+	end
+
 	def self.load_raw(source)
 		begin
 			return from_binary(source) if source.encoding == Encoding::BINARY

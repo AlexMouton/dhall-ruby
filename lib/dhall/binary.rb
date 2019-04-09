@@ -26,8 +26,13 @@ module Dhall
 			new(*args)
 		end
 
-		def to_cbor(io=nil)
-			CBOR.encode(as_json, io)
+		def to_cbor(packer=nil)
+			if packer
+				packer.write(as_json)
+				packer
+			else
+				CBOR.encode(as_json)
+			end
 		end
 		alias to_binary to_cbor
 

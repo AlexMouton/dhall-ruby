@@ -102,6 +102,10 @@ module Dhall
 				Operator::RecursiveRecordTypeMerge.new(lhs: self, rhs: other)
 			end
 		end
+
+		def as_dhall
+			self
+		end
 	end
 
 	class Application < Expression

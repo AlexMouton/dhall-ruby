@@ -4,6 +4,10 @@ AllCops:
 Metrics/LineLength:
   Max: 80
 
+Metrics/AbcSize:
+  Exclude:
+    - test/*
+
 Metrics/MethodLength:
   Exclude:
     - test/*

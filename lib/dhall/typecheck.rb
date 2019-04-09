@@ -40,6 +40,11 @@ module Dhall
 			@typecheckers[node_type] ||= [typechecker, extras]
 		end
 
+		def self.type_of(expr)
+			return if expr.nil?
+			TypeChecker.for(expr).annotate(TypeChecker::Context.new).type
+		end
+
 		class Context
 			def initialize(bindings=Hash.new([]))
 				@bindings = bindings.freeze

@@ -13,6 +13,7 @@ module Dhall
 	end
 end
 
+require "dhall/as_dhall"
 require "dhall/ast"
 require "dhall/binary"
 require "dhall/builtins"

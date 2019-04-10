@@ -254,6 +254,17 @@ If you have any questions about this library, or wish to report a bug, please se
 
 ## Contributing
 
+If you wish to develop locally on this library, you will need to pull submodules and run make to generate the parser:
+
+    git clone --recursive https://git.sr.ht/~singpolyma/dhall-ruby
+    cd dhall-ruby
+    make
+
+Tests can be run with one of:
+
+    make unit # Faster
+    make test # Complete
+
 If you have code or patches you wish to contribute, the maintainer's preferred mechanism is a git pull request.  Push your changes to a git repository somewhere, for example:
 
     git remote rename origin upstream

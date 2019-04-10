@@ -65,6 +65,9 @@ Style/FormatString:
 Style/RegexpLiteral:
   AllowInnerSlashes: true
 
+Style/SpecialGlobalVars:
+  EnforcedStyle: use_perl_names
+
 Style/StringLiterals:
   EnforcedStyle: double_quotes
 

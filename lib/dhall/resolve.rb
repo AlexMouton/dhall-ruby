@@ -346,6 +346,16 @@ module Dhall
 			end
 		end
 
+		class RecordResolver < ExpressionResolver
+			register_for Record
+
+			def resolve(**kwargs)
+				ExpressionResolver.for(@expr.record).resolve(**kwargs).then do |h|
+					@expr.with(record: h)
+				end
+			end
+		end
+
 		register_for Expression
 
 		class IdentityResolver < ExpressionResolver

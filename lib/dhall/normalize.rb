@@ -241,12 +241,6 @@ module Dhall
 		end
 	end
 
-	class List
-		def normalize
-			super.with(element_type: nil)
-		end
-	end
-
 	class EmptyList
 		def normalize
 			super.with(element_type: element_type.normalize)
@@ -255,7 +249,11 @@ module Dhall
 
 	class Optional
 		def normalize
-			with(value: value.normalize, value_type: nil)
+			with(
+				value:      value.normalize,
+				value_type: value_type&.normalize,
+				normalized: true
+			)
 		end
 	end
 
@@ -275,6 +273,36 @@ module Dhall
 			else
 				normalized
 			end
+		end
+	end
+
+	class Record
+		def normalize
+			with(record: Hash[
+				record.map { |k, v| [k, v.nil? ? v : v.normalize] }.sort
+			])
+		end
+
+		def shift(amount, name, min_index)
+			with(record: Hash[
+				record.map { |k, v|
+					[k, v.nil? ? v : v.shift(amount, name, min_index)]
+				}.sort
+			])
+		end
+
+		def substitute(var, with_expr)
+			with(record: Hash[
+				record.map { |k, v|
+					[k, v.nil? ? v : v.substitute(var, with_expr)]
+				}.sort
+			])
+		end
+	end
+
+	class EmptyRecord
+		def normalize
+			self
 		end
 	end
 

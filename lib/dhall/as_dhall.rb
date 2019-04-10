@@ -2,10 +2,6 @@
 
 require "ostruct"
 
-require "dhall/ast"
-require "dhall/binary"
-require "dhall/typecheck"
-
 module Dhall
 	module AsDhall
 		TAGS = {

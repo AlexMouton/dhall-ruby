@@ -3,9 +3,12 @@
 require "uri"
 require "value_semantics"
 
+require "dhall/as_dhall"
 require "dhall/util"
 
 module Dhall
+	using AsDhall
+
 	class Expression
 		def call(*args)
 			args.reduce(self) { |f, arg|
@@ -161,6 +164,7 @@ module Dhall
 		end
 
 		def call(*args)
+			args.map! { |arg| arg&.as_dhall }
 			return super if args.length > 1
 
 			body.substitute(
@@ -168,6 +172,8 @@ module Dhall
 				args.first.shift(1, var, 0)
 			).shift(-1, var, 0).normalize
 		end
+
+		alias [] call
 
 		def as_json
 			if var == "_"
@@ -211,6 +217,18 @@ module Dhall
 			else
 				reduce(other, super)
 			end
+		end
+
+		def !@
+			with(value: !value)
+		end
+
+		def ===(other)
+			self == other || value === other
+		end
+
+		def to_s
+			reduce("True", "False")
 		end
 
 		def as_json
@@ -311,12 +329,16 @@ module Dhall
 			self
 		end
 
-		def reduce(z)
-			elements.reverse.reduce(z) { |acc, x| yield x, acc }
+		def reduce(*z)
+			elements.reverse.reduce(*z) { |acc, x| yield x, acc }
 		end
 
 		def length
 			elements.length
+		end
+
+		def [](idx)
+			Optional.for(elements[idx.to_i], type: element_type)
 		end
 
 		def first
@@ -329,6 +351,10 @@ module Dhall
 
 		def reverse
 			with(elements: elements.reverse)
+		end
+
+		def join(sep=$,)
+			elements.map(&:to_s).join(sep)
 		end
 
 		def concat(other)
@@ -365,6 +391,10 @@ module Dhall
 			0
 		end
 
+		def [](_)
+			OptionalNone.new(value_type: element_type)
+		end
+
 		def first
 			OptionalNone.new(value_type: element_type)
 		end
@@ -396,6 +426,11 @@ module Dhall
 			end
 		end
 
+		def initialize(normalized: false, **attrs)
+			@normalized = normalized
+			super(**attrs)
+		end
+
 		def type
 			return unless value_type
 
@@ -413,8 +448,12 @@ module Dhall
 			block[value]
 		end
 
+		def to_s
+			value.to_s
+		end
+
 		def as_json
-			[5, value_type&.as_json, value.as_json]
+			[5, @normalized ? nil : value_type&.as_json, value.as_json]
 		end
 	end
 
@@ -429,6 +468,10 @@ module Dhall
 
 		def reduce(z)
 			z
+		end
+
+		def to_s
+			""
 		end
 
 		def as_json
@@ -522,27 +565,68 @@ module Dhall
 	end
 
 	class Record < Expression
+		include Enumerable
+
 		include(ValueSemantics.for_attributes do
 			record Util::HashOf.new(::String, Expression, min: 1)
 		end)
+
+		def self.for(record)
+			if record.empty?
+				EmptyRecord.new
+			else
+				new(record: record)
+			end
+		end
+
+		def each(&block)
+			record.each(&block)
+			self
+		end
+
+		def to_h
+			record
+		end
 
 		def keys
 			record.keys
 		end
 
+		def values
+			record.values
+		end
+
+		def [](k)
+			record[k.to_s]
+		end
+
 		def fetch(k, default=nil, &block)
-			record.fetch(k, *default, &block)
+			record.fetch(k.to_s, *default, &block)
 		end
 
 		def slice(*keys)
+			keys = keys.map(&:to_s)
 			if record.respond_to?(:slice)
-				with(record: record.slice(*keys))
+				self.class.for(record.slice(*keys))
 			else
-				with(record: record.select { |k, _| keys.include?(k) })
+				self.class.for(record.select { |k, _| keys.include?(k) })
 			end
 		end
 
+		def dig(*keys)
+			if keys.empty?
+				raise ArgumentError, "wrong number of arguments (given 0, expected 1+)"
+			end
+
+			key, *rest = keys.map(&:to_s)
+			v = record.fetch(key) { return nil }
+			return v if rest.empty?
+
+			v.dig(*rest)
+		end
+
 		def deep_merge(other)
+			other = other.as_dhall
 			return super unless other.is_a?(Record)
 
 			with(record: Hash[record.merge(other.record) { |_, v1, v2|
@@ -551,6 +635,7 @@ module Dhall
 		end
 
 		def merge(other)
+			other = other.as_dhall
 			return super unless other.is_a?(Record)
 
 			with(record: Hash[record.merge(other.record).sort])
@@ -568,13 +653,27 @@ module Dhall
 			self == other
 		end
 
+		def with(attrs)
+			self.class.new({ record: record }.merge(attrs))
+		end
+
 		def as_json
 			[8, Hash[record.to_a.map { |k, v| [k, v.as_json] }.sort]]
 		end
 	end
 
 	class EmptyRecord < Expression
+		include Enumerable
+
 		include(ValueSemantics.for_attributes {})
+
+		def each
+			self
+		end
+
+		def to_h
+			{}
+		end
 
 		def keys
 			[]
@@ -681,9 +780,10 @@ module Dhall
 		end
 
 		def get_constructor(selector)
+			var = Util::BuiltinName === selector ? "_" : selector
 			type = alternatives.fetch(selector)
-			body = Union.from(self, selector, Variable[selector])
-			Function.new(var: selector, type: type, body: body)
+			body = Union.from(self, selector, Variable[var])
+			Function.new(var: var, type: type, body: body)
 		end
 
 		def constructor_types
@@ -691,7 +791,8 @@ module Dhall
 				ctypes[k] = if type.nil?
 					self
 				else
-					Forall.new(var: k, type: type, body: self)
+					var = Util::BuiltinName === k ? "_" : k
+					Forall.new(var: var, type: type, body: self)
 				end
 			end
 		end
@@ -719,6 +820,31 @@ module Dhall
 					alternatives: alts.alternatives.reject { |alt, _| alt == tag }
 				)
 			)
+		end
+
+		def to_s
+			value.nil? ? tag : extract.to_s
+		end
+
+		def extract
+			if value.nil?
+				tag.to_sym
+			elsif value.is_a?(TypeAnnotation)
+				value.value
+			else
+				value
+			end
+		end
+
+		def reduce(handlers)
+			handlers = handlers.to_h
+			handler = handlers.fetch(tag.to_sym) { handlers.fetch(tag) }
+			if value.nil?
+				handler
+			else
+				(handler.respond_to?(:to_proc) ? handler.to_proc : handler)
+					.call(extract)
+			end
 		end
 
 		def selection_syntax
@@ -767,7 +893,12 @@ module Dhall
 			value (0..Float::INFINITY)
 		end)
 
+		def coerce(other)
+			[other.as_dhall, self]
+		end
+
 		def +(other)
+			other = other.as_dhall
 			if other.is_a?(Natural)
 				with(value: value + other.value)
 			else
@@ -776,12 +907,17 @@ module Dhall
 		end
 
 		def *(other)
+			other = other.as_dhall
 			return self if zero?
 			if other.is_a?(Natural)
 				with(value: value * other.value)
 			else
 				super
 			end
+		end
+
+		def to_i
+			value
 		end
 
 		def to_s
@@ -804,6 +940,10 @@ module Dhall
 			with(value: [0, value - 1].max)
 		end
 
+		def ===(other)
+			self == other || value === other
+		end
+
 		def as_json
 			[15, value]
 		end
@@ -816,6 +956,14 @@ module Dhall
 
 		def to_s
 			"#{value >= 0 ? "+" : ""}#{value}"
+		end
+
+		def to_i
+			value
+		end
+
+		def ===(other)
+			self == other || value === other
 		end
 
 		def as_json
@@ -834,6 +982,10 @@ module Dhall
 
 		def to_f
 			value
+		end
+
+		def ===(other)
+			self == other || value === other
 		end
 
 		def coerce(other)
@@ -888,6 +1040,10 @@ module Dhall
 
 		def to_s
 			value
+		end
+
+		def ===(other)
+			self == other || value === other
 		end
 
 		def as_json

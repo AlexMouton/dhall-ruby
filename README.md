@@ -47,7 +47,7 @@ Wherever possible, you should use the `Promise` API and treat `Dhall.load` as an
 
 **This will block the thread it is run from until the whole load operation is complete.  Never call #sync from an async context.**
 
-### Customising Import Resolution
+### Customizing Import Resolution
 
 You may optionally pass `Dhall.load` a resolver that will be used to resolve all imports during the load process:
 
@@ -55,12 +55,12 @@ You may optionally pass `Dhall.load` a resolver that will be used to resolve all
 
 There are a few provided resolvers for you to choose from:
 
-* `Dhall::Resolvers::Default` supports loading from http, https, local path, and IPFS sources.  IPFS imports will come from the local moutpoint, if present, with automatic fallbacks to the local gateway, if present, and finally a public gateway.
+* `Dhall::Resolvers::Default` supports loading from http, https, local path, and IPFS sources.  IPFS imports will come from the local mountpoint, if present, with automatic fallbacks to the local gateway, if present, and finally a public gateway.
 * `Dhall::Resolvers::Standard` should be used if you want strict dhall-lang standard compliance.  It supports loading from http, https, and local paths.
 * `Dhall::Resolvers::LocalOnly` only allows imports from local paths.
 * `Dhall::Resolvers::None` will not allow any imports.
 
-It is possible to customise these options further, or provide your own resolver, but this is undocumented for now.
+It is possible to customize these options further, or provide your own resolver, but this is undocumented for now.
 
 ## Function
 
@@ -243,7 +243,7 @@ Many methods on Dhall expressions call `#as_dhall` on their arguments, so you ca
 
 ## Porting from YAML or JSON Configuration
 
-To aid in converting your existing configurations or seralized data, there are included some experimental scripts:
+To aid in converting your existing configurations or serialized data, there are included some experimental scripts:
 
     bundle exec json-to-dhall < path/to/config.json | dhall decode
     bundle exec yaml-to-dhall < path/to/config.yaml | dhall decode

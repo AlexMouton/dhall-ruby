@@ -8,6 +8,20 @@ This project follows semantic versioning, and every tagged version claims to adh
 
 For the purposes of considering what is a "breaking change" only the API as documented in this documentation is considered, regardless of any other exposed parts of the library.  Anything not documented here may change at any time, but backward-incompatible changes to anything documented here will be accompanied by a major-version increment.
 
+## Installation
+
+Add this line to your application's Gemfile:
+
+    gem 'dhall'
+
+And then execute:
+
+    bundle
+
+Or install it yourself as:
+
+    gem install dhall
+
 ## Load Expressions
 
     require "dhall"
@@ -231,8 +245,8 @@ Many methods on Dhall expressions call `#as_dhall` on their arguments, so you ca
 
 To aid in converting your existing configurations or seralized data, there are included some experimental scripts:
 
-    json-to-dhall < path/to/config.json | dhall decode
-    yaml-to-dhall < path/to/config.yaml | dhall decode
+    bundle exec json-to-dhall < path/to/config.json | dhall decode
+    bundle exec yaml-to-dhall < path/to/config.yaml | dhall decode
 
 ## Getting Help
 

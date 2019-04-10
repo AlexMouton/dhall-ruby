@@ -16,6 +16,10 @@ Metrics/ClassLength:
   Exclude:
     - test/*
 
+Metrics/BlockLength:
+  Exclude:
+    - dhall.gemspec
+
 Metrics/ModuleLength:
   Enabled: false
 

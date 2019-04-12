@@ -63,6 +63,18 @@ module Dhall
 			end
 		end
 
+		StandardReadHttpSources = lambda do |sources, parent_origin|
+			ReadHttpSources.call(sources, parent_origin).map do |source_promise|
+				source_promise.then do |s|
+					s = s.force_encoding("UTF-8")
+					unless s.valid_encoding?
+						raise ImportFailedException, "#{s.inspect} is not valid UTF-8"
+					end
+					s
+				end
+			end
+		end
+
 		RejectSources = lambda do |sources|
 			sources.map do |source|
 				Promise.new.reject(ImportBannedException.new(source))
@@ -162,7 +174,7 @@ module Dhall
 		class Standard
 			def initialize(
 				path_reader: ReadPathSources,
-				http_reader: ReadHttpSources,
+				http_reader: StandardReadHttpSources,
 				https_reader: http_reader
 			)
 				@path_resolutions = ResolutionSet.new(path_reader)

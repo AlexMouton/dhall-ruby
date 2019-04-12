@@ -21,6 +21,10 @@ module Dhall
 	end
 
 	def self.load_raw(source)
+		unless source.valid_encoding?
+			raise ArgumentError, "invalid byte sequence in #{source.encoding}"
+		end
+
 		begin
 			return from_binary(source) if source.encoding == Encoding::BINARY
 		rescue Exception # rubocop:disable Lint/RescueException

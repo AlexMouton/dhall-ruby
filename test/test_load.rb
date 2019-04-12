@@ -13,6 +13,18 @@ class TestLoad < Minitest::Test
 		assert_equal Dhall::Natural.new(value: 1), Dhall.load("1".b).sync
 	end
 
+	def test_load_invalid_utf8
+		assert_raises ArgumentError do
+			Dhall.load("\xc3\x28").sync
+		end
+	end
+
+	def test_load_invalid_utf8_binary_input
+		assert_raises ArgumentError do
+			Dhall.load("\xc3\x28".b).sync
+		end
+	end
+
 	def test_load_natural_binary
 		assert_equal(
 			Dhall::Natural.new(value: 1),

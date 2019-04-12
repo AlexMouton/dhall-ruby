@@ -14,12 +14,21 @@ class TestNormalization < Minitest::Test
 
 		define_method("test_#{test}") do
 			Dhall::Function.disable_alpha_normalization! if test !~ /α/
+
+			parsed_a = Dhall::Parser.parse_file(path).value
+			binary_a = if test !~ /unit|simple/
+				parsed_a.resolve(
+					relative_to: Dhall::Import::Path.from_string(path)
+				)
+			else
+				Promise.resolve(parsed_a)
+			end.then(&:normalize).sync.to_binary
+
 			assert_equal(
 				Dhall::Parser.parse_file(TESTS + "#{test}B.dhall").value.to_binary,
-				Dhall::Parser.parse_file(path).value.resolve(
-					relative_to: Dhall::Import::Path.from_string(path)
-				).then(&:normalize).sync.to_binary
+				binary_a
 			)
+
 			Dhall::Function.enable_alpha_normalization! if test !~ /α/
 		end
 	end

@@ -14,16 +14,22 @@ class TestTypechecker < Minitest::Test
 		bside = TESTS + "#{test}B.dhall"
 
 		define_method("test_#{test}") do
+			parsed_a = Dhall::Parser.parse_file(path).value
+			parsed_b = Dhall::Parser.parse_file(bside).value
+
+			final_a, final_b = if test !~ /unit|simple/
+				Promise.all([parsed_a, parsed_b].map { |e|
+					e.resolve(
+						relative_to: Dhall::Import::Path.from_string(path)
+					)
+				})
+			else
+				Promise.resolve([parsed_a, parsed_b])
+			end.sync
+
 			assert_respond_to(
 				Dhall::TypeChecker.for(
-					Dhall::TypeAnnotation.new(
-						value: Dhall::Parser.parse_file(path).value.resolve(
-							relative_to: Dhall::Import::Path.from_string(path)
-						).sync,
-						type:  Dhall::Parser.parse_file(bside).value.resolve(
-							relative_to: Dhall::Import::Path.from_string(bside)
-						).sync
-					)
+					Dhall::TypeAnnotation.new(value: final_a, type: final_b)
 				).annotate(Dhall::TypeChecker::Context.new),
 				:type
 			)

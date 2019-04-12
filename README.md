@@ -174,7 +174,7 @@ A Dhall expression may be a list of other expressions.  Lists are `Enumerable` a
       list[100]                          # => #<Dhall::OptionalNone value_type=...>
       list.reverse                       # => #<Dhall::List elements=[#<Dhall::Natural value=2>, #<Dhall::Natural value=1>] element_type=...>
       list.join(",")                     # => "1,2"
-      list.to_a                          # => [1,2]
+      list.to_a                          # => [#<Dhall::Natural value=1>, #<Dhall::Natural value=2>]
     end
 
 ## Record

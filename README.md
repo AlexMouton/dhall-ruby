@@ -6,7 +6,7 @@ This is a Ruby implementation of the Dhall configuration language.  Dhall is a p
 
 This project follows semantic versioning, and every tagged version claims to adhere to the version of the dhall-lang standard that is linked in the dhall-lang submodule.
 
-For the purposes of considering what is a "breaking change" only the API as documented in this documentation is considered, regardless of any other exposed parts of the library.  Anything not documented here may change at any time, but backward-incompatible changes to anything documented here will be accompanied by a major-version increment.
+For the purposes of considering what is a "breaking change" only the API as documented in this README is considered, regardless of any other exposed parts of the library.  Anything not documented here may change at any time, but backward-incompatible changes to anything documented here will be accompanied by a major-version increment.
 
 ## Installation
 

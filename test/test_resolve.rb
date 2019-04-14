@@ -10,7 +10,7 @@ class TestResolve < Minitest::Test
 	def setup
 		@relative_to = Dhall::Import::RelativePath.new
 		@resolver = Dhall::Resolvers::Default.new(
-			path_reader: lambda do |sources|
+			path_reader:        lambda do |sources|
 				sources.map do |source|
 					Promise.resolve(Base64.decode64({
 						"var"      => "AA",
@@ -24,6 +24,14 @@ class TestResolve < Minitest::Test
 						"using"    => "iBgY9gAAhRgY9gADZ2hlYWRlcnNkZS50ZGF09g",
 						"headers"  => "gwT2ggiiZmhlYWRlcoISYnRoZXZhbHVlghJidHY"
 					}.fetch(source.pathname.to_s)))
+				end
+			end,
+			environment_reader: lambda do |sources|
+				sources.map do |source|
+					Promise.resolve({
+						"NAT"  => "1",
+						"PATH" => "./var"
+					}.fetch(source.var))
 				end
 			end
 		)
@@ -190,6 +198,36 @@ class TestResolve < Minitest::Test
 			Dhall::Import::IntegrityCheck.new,
 			Dhall::Import::Expression,
 			Dhall::Import::RelativePath.new("using")
+		)
+
+		assert_equal Dhall::Variable["_"], subject(expr)
+	end
+
+	def test_env_natural
+		expr = Dhall::Import.new(
+			Dhall::Import::IntegrityCheck.new,
+			Dhall::Import::Expression,
+			Dhall::Import::EnvironmentVariable.new("NAT")
+		)
+
+		assert_equal Dhall::Natural.new(value: 1), subject(expr)
+	end
+
+	def test_env_as_text
+		expr = Dhall::Import.new(
+			Dhall::Import::IntegrityCheck.new,
+			Dhall::Import::Text,
+			Dhall::Import::EnvironmentVariable.new("NAT")
+		)
+
+		assert_equal Dhall::Text.new(value: "1"), subject(expr)
+	end
+
+	def test_env_relative
+		expr = Dhall::Import.new(
+			Dhall::Import::IntegrityCheck.new,
+			Dhall::Import::Expression,
+			Dhall::Import::EnvironmentVariable.new("PATH")
 		)
 
 		assert_equal Dhall::Variable["_"], subject(expr)

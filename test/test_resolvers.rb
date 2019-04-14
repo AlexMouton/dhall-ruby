@@ -18,19 +18,16 @@ class TestResolvers < Minitest::Test
 		assert_equal source, promise.sync
 	end
 
-	def test_default_resolver_path_from_env
-		ENV["__DHALL_IMPORT_TEST"] = "/dhall/common/x.dhall"
+	def test_default_resolver_env
 		resolver = Dhall::Resolvers::Default.new(
-			path_reader: lambda do |sources|
+			environment_reader: lambda do |sources|
 				sources.map { |source| Promise.resolve(source) }
 			end
 		)
 		source = Dhall::Import::EnvironmentVariable.new("__DHALL_IMPORT_TEST")
 		promise = source.resolve(resolver)
 		resolver.finish!
-
-		expected = Dhall::Import::AbsolutePath.new("dhall", "common", "x.dhall")
-		assert_equal expected, promise.sync
+		assert_equal source, promise.sync
 	end
 
 	def test_default_resolver_http

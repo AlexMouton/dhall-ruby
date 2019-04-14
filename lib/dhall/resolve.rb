@@ -20,6 +20,16 @@ module Dhall
 			end
 		end
 
+		ReadEnvironmentSources = lambda do |sources|
+			sources.map do |source|
+				Promise.resolve(nil).then do
+					ENV.fetch(source.var) do
+						raise ImportFailedException, "No #{source}"
+					end
+				end
+			end
+		end
+
 		PreflightCORS = lambda do |source, parent_origin|
 			uri = source.uri
 			if parent_origin != "localhost" && parent_origin != source.origin
@@ -175,11 +185,13 @@ module Dhall
 			def initialize(
 				path_reader: ReadPathSources,
 				http_reader: StandardReadHttpSources,
-				https_reader: http_reader
+				https_reader: http_reader,
+				environment_reader: ReadEnvironmentSources
 			)
 				@path_resolutions = ResolutionSet.new(path_reader)
 				@http_resolutions = ResolutionSet.new(http_reader)
 				@https_resolutions = ResolutionSet.new(https_reader)
+				@env_resolutions = ResolutionSet.new(environment_reader)
 				@cache = {}
 			end
 
@@ -193,6 +205,10 @@ module Dhall
 
 			def resolve_path(path_source)
 				@path_resolutions.register(path_source)
+			end
+
+			def resolve_environment(env_source)
+				@env_resolutions.register(env_source)
 			end
 
 			def resolve_http(http_source)
@@ -220,6 +236,7 @@ module Dhall
 			def finish!
 				[
 					@path_resolutions,
+					@env_resolutions,
 					@http_resolutions,
 					@https_resolutions
 				].each do |rset|
@@ -232,6 +249,7 @@ module Dhall
 				dup.tap do |c|
 					c.instance_eval do
 						@path_resolutions = @path_resolutions.child(parent_source)
+						@env_resolutions = @env_resolutions.child(parent_source)
 						@http_resolutions = @http_resolutions.child(parent_source)
 						@https_resolutions = @https_resolutions.child(parent_source)
 					end
@@ -244,27 +262,32 @@ module Dhall
 				path_reader: ReadPathSources,
 				http_reader: ReadHttpSources,
 				https_reader: http_reader,
+				environment_reader: ReadEnvironmentSources,
 				ipfs_public_gateway: "cloudflare-ipfs.com"
 			)
 				super(
-					path_reader:  ReadPathAndIPFSSources.new(
+					path_reader: ReadPathAndIPFSSources.new(
 						path_reader:    path_reader,
 						http_reader:    http_reader,
 						https_reader:   https_reader,
 						public_gateway: ipfs_public_gateway
 					),
-					http_reader:  http_reader,
-					https_reader: https_reader
+					http_reader: http_reader, https_reader: https_reader,
+					environment_reader: environment_reader
 				)
 			end
 		end
 
 		class LocalOnly < Standard
-			def initialize(path_reader: ReadPathSources)
+			def initialize(
+				path_reader: ReadPathSources,
+				environment_reader: ReadEnvironmentSources
+			)
 				super(
-					path_reader:  path_reader,
-					http_reader:  RejectSources,
-					https_reader: RejectSources
+					path_reader:        path_reader,
+					environment_reader: environment_reader,
+					http_reader:        RejectSources,
+					https_reader:       RejectSources
 				)
 			end
 		end
@@ -272,9 +295,10 @@ module Dhall
 		class None < Default
 			def initialize
 				super(
-					path_reader:  RejectSources,
-					http_reader:  RejectSources,
-					https_reader: RejectSources
+					path_reader:        RejectSources,
+					environment_reader: RejectSources,
+					http_reader:        RejectSources,
+					https_reader:       RejectSources
 				)
 			end
 		end
@@ -328,9 +352,15 @@ module Dhall
 		class FallbackResolver < ExpressionResolver
 			register_for Operator::ImportFallback
 
-			def resolve(**kwargs)
-				ExpressionResolver.for(@expr.lhs).resolve(**kwargs).catch do
-					ExpressionResolver.for(@expr.rhs).resolve(**kwargs)
+			def resolve(resolver:, relative_to:)
+				ExpressionResolver.for(@expr.lhs).resolve(
+					resolver:    resolver,
+					relative_to: relative_to
+				).catch do
+					@expr.rhs.resolve(
+						resolver:    resolver.child(Import::MissingImport.new),
+						relative_to: relative_to
+					)
 				end
 			end
 		end

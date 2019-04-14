@@ -1225,13 +1225,15 @@ module Dhall
 			end
 
 			def self.from_string(s)
-				parts = s.to_s.split(/\//)
-				if parts.first == ""
-					AbsolutePath.new(*parts[1..-1])
-				elsif parts.first == "~"
-					RelativeToHomePath.new(*parts[1..-1])
+				prefix, *suffix = s.to_s.split(/\//)
+				if prefix == ""
+					AbsolutePath.new(*suffix)
+				elsif prefix == "~"
+					RelativeToHomePath.new(*suffix)
+				elsif prefix == ".."
+					RelativeToParentPath.new(*suffix)
 				else
-					RelativePath.new(*parts)
+					RelativePath.new(prefix, *suffix)
 				end
 			end
 
@@ -1303,7 +1305,7 @@ module Dhall
 				Pathname.new("~").join(*@path)
 			end
 
-			def chain_onto(*)
+			def chain_onto(relative_to)
 				if relative_to.is_a?(URI)
 					raise ImportBannedException, "remote import cannot import #{self}"
 				end
@@ -1331,6 +1333,8 @@ module Dhall
 				end
 			end
 
+			attr_reader :var
+
 			def initialize(var)
 				@var = var
 			end
@@ -1340,28 +1344,27 @@ module Dhall
 					raise ImportBannedException, "remote import cannot import #{self}"
 				end
 
-				real_path.chain_onto(relative_to)
+				self
+			end
+
+			def path
+				[]
+			end
+
+			def with(path:)
+				Path.from_string(path.join("/"))
 			end
 
 			def canonical
-				real_path.canonical
+				self
 			end
 
 			def real_path
-				val = ENV.fetch(@var) do
-					raise ImportFailedException, "No #{self}"
-				end
-				if val =~ /\Ahttps?:\/\//
-					URI.from_uri(URI(val))
-				else
-					Path.from_string(val)
-				end
+				self
 			end
 
 			def resolve(resolver)
-				Promise.resolve(nil).then do
-					real_path.resolve(resolver)
-				end
+				resolver.resolve_environment(self)
 			end
 
 			def origin
@@ -1371,6 +1374,15 @@ module Dhall
 			def to_s
 				"env:#{as_json}"
 			end
+
+			def hash
+				@var.hash
+			end
+
+			def eql?(other)
+				other.is_a?(self.class) && other.var == var
+			end
+			alias eql? ==
 
 			def as_json
 				@var.gsub(/[\"\\\a\b\f\n\r\t\v]/) do |c|

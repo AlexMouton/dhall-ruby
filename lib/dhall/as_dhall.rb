@@ -39,6 +39,16 @@ module Dhall
 			end
 		end
 
+		refine ::Symbol do
+			def as_dhall
+				Dhall::Union.new(
+					tag:          to_s,
+					value:        nil,
+					alternatives: Dhall::UnionType.new(alternatives: {})
+				)
+			end
+		end
+
 		refine ::Integer do
 			def as_dhall
 				if negative?

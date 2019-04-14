@@ -2,7 +2,7 @@
 
 require "minitest/autorun"
 
-require "dhall/as_dhall"
+require "dhall"
 
 class TestAsDhall < Minitest::Test
 	using Dhall::AsDhall
@@ -22,6 +22,17 @@ class TestAsDhall < Minitest::Test
 		assert_raises Encoding::UndefinedConversionError do
 			"\xff".b.as_dhall
 		end
+	end
+
+	def test_symbol
+		assert_equal(
+			Dhall::Union.new(
+				tag:          "hai",
+				value:        nil,
+				alternatives: Dhall::UnionType.new(alternatives: {})
+			),
+			:hai.as_dhall
+		)
 	end
 
 	def test_natural

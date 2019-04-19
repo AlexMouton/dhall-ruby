@@ -1445,6 +1445,8 @@ module Dhall
 
 		class Expression
 			def self.call(import_value)
+				return import_value if import_value.is_a?(Dhall::Expression)
+
 				Dhall.load_raw(import_value)
 			end
 		end

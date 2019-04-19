@@ -199,14 +199,7 @@ module Dhall
 
 		class TextConcatenate
 			def normalize
-				normalized = super
-				if normalized.lhs == Text.new(value: "")
-					normalized.rhs
-				elsif normalized.rhs == Text.new(value: "")
-					normalized.lhs
-				else
-					normalized.lhs << normalized.rhs
-				end
+				TextLiteral.for(lhs, rhs).normalize
 			end
 		end
 

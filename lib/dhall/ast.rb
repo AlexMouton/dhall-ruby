@@ -41,10 +41,6 @@ module Dhall
 			end
 		end
 
-		def <<(other)
-			Operator::TextConcatenate.new(lhs: self, rhs: other)
-		end
-
 		def concat(other)
 			Operator::ListConcatenate.new(lhs: self, rhs: other)
 		end

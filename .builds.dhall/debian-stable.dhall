@@ -10,6 +10,7 @@
 		backports = "http://ftp.ca.debian.org/debian/ stretch-backports main"
 	},
 	sources = ["https://git.sr.ht/~singpolyma/dhall-ruby"],
+	environment = { CI = 1 },
 	tasks = [
 		{ build =
 			''

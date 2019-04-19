@@ -1,4 +1,6 @@
 image: debian/stable
+environment:
+  CI: 1
 sources:
 - https://git.sr.ht/~singpolyma/dhall-ruby
 tasks:

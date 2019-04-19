@@ -14,7 +14,7 @@ module Dhall
 
 	def self.load(source, resolver: Resolvers::Default.new)
 		Promise.resolve(nil).then {
-			load_raw(source).resolve(resolver: resolver)
+			load_raw(source.to_s).resolve(resolver: resolver)
 		}.then do |resolved|
 			TypeChecker.for(resolved).annotate(TypeChecker::Context.new).normalize
 		end

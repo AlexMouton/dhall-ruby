@@ -179,7 +179,9 @@ end
 
 puts "rule reserved_identifier"
 print "\t"
-puts Dhall::Util::BuiltinName::NAMES.map { |name| "\"#{name}\"" }.join(" |\n\t")
+puts Dhall::Builtins.constants.map { |name|
+	"\"#{name.to_s.tr("_", "/")}\""
+}.join(" |\n\t")
 puts "end"
 
 puts "end"

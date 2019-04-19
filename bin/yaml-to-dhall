@@ -5,4 +5,4 @@ require "dhall"
 require "yaml"
 using Dhall::AsDhall
 
-STDOUT.write(CBOR.encode(YAML.safe_load(STDIN.read).as_dhall))
+STDOUT.write(CBOR.encode(YAML.safe_load(STDIN.read, [Symbol]).as_dhall))

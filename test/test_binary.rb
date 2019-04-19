@@ -24,7 +24,7 @@ class TestBinary < Minitest::Test
 	def test_self_describing_cbor
 		assert_equal(
 			Dhall::Variable["x"],
-			Dhall.from_binary(Base64.decode64("2dn3YXg"))
+			Dhall.from_binary(Base64.decode64("2dn3gmF4AA"))
 		)
 	end
 end

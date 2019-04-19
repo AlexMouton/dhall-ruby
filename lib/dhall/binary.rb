@@ -227,7 +227,7 @@ module Dhall
 		::TrueClass    => ->(e) { Bool.new(value: e) },
 		::FalseClass   => ->(e) { Bool.new(value: e) },
 		::Float        => ->(e) { Double.new(value: e) },
-		::String       => ->(e) { Builtins::ALL[e]&.new || Variable.new(name: e) },
+		::String       => ->(e) { Builtins[e.to_sym] || (raise "Unknown builtin") },
 		::Integer      => ->(e) { Variable.new(index: e) },
 		::Array        => lambda { |e|
 			if e.length == 2 && e.first.is_a?(::String)

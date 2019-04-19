@@ -93,7 +93,7 @@ class TestAsDhall < Minitest::Test
 		assert_equal(
 			Dhall::List.new(elements: [
 				Dhall::Optional.new(value: Dhall::Natural.new(value: 1)),
-				Dhall::OptionalNone.new(value_type: Dhall::Variable["Natural"])
+				Dhall::OptionalNone.new(value_type: Dhall::Builtins[:Natural])
 			]),
 			[1, nil].as_dhall
 		)
@@ -106,7 +106,7 @@ class TestAsDhall < Minitest::Test
 				Dhall::Optional.new(value: Dhall::Natural.new(
 					value: 10000000000000000000000000000000000
 				)),
-				Dhall::OptionalNone.new(value_type: Dhall::Variable["Natural"])
+				Dhall::OptionalNone.new(value_type: Dhall::Builtins[:Natural])
 			]),
 			[1, 10000000000000000000000000000000000, nil].as_dhall
 		)
@@ -119,18 +119,18 @@ class TestAsDhall < Minitest::Test
 		           "6ff80f968ba1755d27cdf5eab3"
 		union_type = Dhall::UnionType.new(
 			alternatives: {
-				"Natural" => Dhall::Variable["Natural"],
-				"Text"    => Dhall::Variable["Text"],
+				"Natural" => Dhall::Builtins[:Natural],
+				"Text"    => Dhall::Builtins[:Text],
 				"None"    => nil,
-				"Bool"    => Dhall::Variable["Bool"],
+				"Bool"    => Dhall::Builtins[:Bool],
 				hash_key  => Dhall::RecordType.new(
 					record: {
-						"a" => Dhall::Variable["Natural"]
+						"a" => Dhall::Builtins[:Natural]
 					}
 				),
 				array_key => Dhall::Application.new(
-					function: Dhall::Variable["List"],
-					argument: Dhall::Variable["Natural"]
+					function: Dhall::Builtins[:List],
+					argument: Dhall::Builtins[:Natural]
 				)
 			}
 		)
@@ -223,8 +223,8 @@ class TestAsDhall < Minitest::Test
 				value:        Dhall::TypeAnnotation.new(
 					type:  Dhall::RecordType.new(
 						record: {
-							"a" => Dhall::Variable["Natural"],
-							"b" => Dhall::Variable["Text"]
+							"a" => Dhall::Builtins[:Natural],
+							"b" => Dhall::Builtins[:Text]
 						}
 					),
 					value: Dhall::Record.new(

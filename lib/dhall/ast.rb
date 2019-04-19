@@ -114,9 +114,7 @@ module Dhall
 		end)
 
 		def self.for(function:, argument:)
-			if function == Variable["Some"]
-				Optional.new(value: argument)
-			elsif function == Variable["None"]
+			if function == Builtins[:None]
 				OptionalNone.new(value_type: argument)
 			else
 				new(function: function, argument: argument)
@@ -144,7 +142,7 @@ module Dhall
 
 	class Function < Expression
 		include(ValueSemantics.for_attributes do
-			var  Util::AllOf.new(::String, Util::Not.new(Util::BuiltinName))
+			var  ::String
 			type Either(nil, Expression) # nil is not allowed in proper Dhall
 			body Expression
 		end)
@@ -230,6 +228,10 @@ module Dhall
 		def as_json
 			value
 		end
+
+		def self.as_dhall
+			Builtins[:Bool]
+		end
 	end
 
 	class Variable < Expression
@@ -249,8 +251,6 @@ module Dhall
 		def as_json
 			if name == "_"
 				index
-			elsif index.zero?
-				name
 			else
 				[name, index]
 			end
@@ -305,9 +305,13 @@ module Dhall
 			end
 		end
 
+		def self.as_dhall
+			Builtins[:List]
+		end
+
 		def type
 			Dhall::Application.new(
-				function: Dhall::Variable["List"],
+				function: self.class.as_dhall,
 				argument: element_type
 			)
 		end
@@ -317,7 +321,10 @@ module Dhall
 		end
 
 		def map(type: nil, &block)
-			with(elements: elements.each_with_index.map(&block), element_type: type)
+			with(
+				elements:     elements.each_with_index.map(&block),
+				element_type: type&.as_dhall
+			)
 		end
 
 		def each(&block)
@@ -422,6 +429,10 @@ module Dhall
 			end
 		end
 
+		def self.as_dhall
+			Builtins[:Natural]
+		end
+
 		def initialize(normalized: false, **attrs)
 			@normalized = normalized
 			super(**attrs)
@@ -431,7 +442,7 @@ module Dhall
 			return unless value_type
 
 			Dhall::Application.new(
-				function: Dhall::Variable["Optional"],
+				function: Builtins[:Optional],
 				argument: value_type
 			)
 		end
@@ -458,6 +469,10 @@ module Dhall
 			value_type Expression
 		end)
 
+		def self.as_dhall
+			Builtins[:None]
+		end
+
 		def map(type: nil)
 			type.nil? ? self : with(value_type: type)
 		end
@@ -471,7 +486,10 @@ module Dhall
 		end
 
 		def as_json
-			[0, Variable["None"].as_json, value_type.as_json]
+			Application.new(
+				function: self.class.as_dhall,
+				argument: value_type
+			).as_json
 		end
 	end
 
@@ -776,10 +794,9 @@ module Dhall
 		end
 
 		def get_constructor(selector)
-			var = Util::BuiltinName === selector ? "_" : selector
 			type = alternatives.fetch(selector)
-			body = Union.from(self, selector, Variable[var])
-			Function.new(var: var, type: type, body: body)
+			body = Union.from(self, selector, Variable[selector])
+			Function.new(var: selector, type: type, body: body)
 		end
 
 		def constructor_types
@@ -787,8 +804,7 @@ module Dhall
 				ctypes[k] = if type.nil?
 					self
 				else
-					var = Util::BuiltinName === k ? "_" : k
-					Forall.new(var: var, type: type, body: self)
+					Forall.new(var: k, type: type, body: self)
 				end
 			end
 		end
@@ -889,6 +905,10 @@ module Dhall
 			value (0..Float::INFINITY)
 		end)
 
+		def self.as_dhall
+			Builtins[:Natural]
+		end
+
 		def coerce(other)
 			[other.as_dhall, self]
 		end
@@ -950,6 +970,10 @@ module Dhall
 			value ::Integer
 		end)
 
+		def self.as_dhall
+			Builtins[:Integer]
+		end
+
 		def to_s
 			"#{value >= 0 ? "+" : ""}#{value}"
 		end
@@ -971,6 +995,10 @@ module Dhall
 		include(ValueSemantics.for_attributes do
 			value ::Float
 		end)
+
+		def self.as_dhall
+			Builtins[:Double]
+		end
 
 		def to_s
 			value.to_s
@@ -1025,6 +1053,10 @@ module Dhall
 		include(ValueSemantics.for_attributes do
 			value ::String, coerce: ->(s) { s.encode("UTF-8") }
 		end)
+
+		def self.as_dhall
+			Builtins[:Double]
+		end
 
 		def <<(other)
 			if other.is_a?(Text)
@@ -1111,13 +1143,6 @@ module Dhall
 				query     Either(nil, ::String)
 			end)
 
-			HeaderType = RecordType.new(
-				record: {
-					"header" => Variable["Text"],
-					"value"  => Variable["Text"]
-				}
-			)
-
 			def initialize(headers, authority, *path, query)
 				super(
 					headers:   headers,
@@ -1147,7 +1172,14 @@ module Dhall
 			end
 
 			def headers
-				super || EmptyList.new(element_type: HeaderType)
+				header_type = RecordType.new(
+					record: {
+						"header" => Builtins[:Text],
+						"value"  => Builtins[:Text]
+					}
+				)
+
+				super || EmptyList.new(element_type: header_type)
 			end
 
 			def uri
@@ -1485,7 +1517,7 @@ module Dhall
 
 	class Let < Expression
 		include(ValueSemantics.for_attributes do
-			var    Util::AllOf.new(::String, Util::Not.new(Util::BuiltinName))
+			var    ::String
 			assign Expression
 			type   Either(nil, Expression)
 		end)

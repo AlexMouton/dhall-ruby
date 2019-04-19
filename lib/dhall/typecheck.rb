@@ -72,9 +72,9 @@ module Dhall
 		end
 
 		KINDS = [
-			Dhall::Variable["Type"],
-			Dhall::Variable["Kind"],
-			Dhall::Variable["Sort"]
+			Builtins[:Type],
+			Builtins[:Kind],
+			Builtins[:Sort]
 		].freeze
 
 		class Variable
@@ -84,38 +84,12 @@ module Dhall
 				@var = var
 			end
 
-			BUILTIN = {
-				"Type"     => Dhall::Variable["Kind"],
-				"Kind"     => Dhall::Variable["Sort"],
-				"Bool"     => Dhall::Variable["Type"],
-				"Natural"  => Dhall::Variable["Type"],
-				"Integer"  => Dhall::Variable["Type"],
-				"Double"   => Dhall::Variable["Type"],
-				"Text"     => Dhall::Variable["Type"],
-				"List"     => Dhall::Forall.of_arguments(
-					Dhall::Variable["Type"],
-					body: Dhall::Variable["Type"]
-				),
-				"Optional" => Dhall::Forall.of_arguments(
-					Dhall::Variable["Type"],
-					body: Dhall::Variable["Type"]
-				),
-				"None"     => Dhall::Forall.new(
-					var:  "A",
-					type: Dhall::Variable["Type"],
-					body: Dhall::Application.new(
-						function: Dhall::Variable["Optional"],
-						argument: Dhall::Variable["A"]
-					)
-				)
-			}.freeze
-
 			def annotate(context)
 				raise TypeError, "Sort has no Type, Kind, or Sort" if @var.name == "Sort"
 
 				Dhall::TypeAnnotation.new(
 					value: @var,
-					type:  BUILTIN.fetch(@var.name) { context.fetch(@var) }
+					type:  context.fetch(@var)
 				)
 			end
 		end
@@ -130,6 +104,7 @@ module Dhall
 			def initialize(lit)
 				@lit = lit
 				@type = Dhall::Variable[lit.class.name.split(/::/).last]
+				@type = Builtins[@type.name.to_sym] || @type
 			end
 
 			def annotate(*)
@@ -170,14 +145,14 @@ module Dhall
 			def annotate(context)
 				chunks = Chunks.new(@lit.chunks).map { |c|
 					TypeChecker.for(c).annotate(context).tap do |annotated|
-						TypeChecker.assert annotated.type, Dhall::Variable["Text"],
+						TypeChecker.assert annotated.type, Builtins[:Text],
 						                   "Cannot interpolate #{annotated.type}"
 					end
 				}.to_a
 
 				Dhall::TypeAnnotation.new(
 					value: @lit.with(chunks: chunks),
-					type:  Dhall::Variable["Text"]
+					type:  Builtins[:Text]
 				)
 			end
 		end
@@ -194,9 +169,9 @@ module Dhall
 
 			class AnnotatedIf
 				def initialize(expr, apred, athen, aelse, context:)
-					TypeChecker.assert apred.type, Dhall::Variable["Bool"],
+					TypeChecker.assert apred.type, Builtins[:Bool],
 					                   "If must have a predicate of type Bool"
-					TypeChecker.assert_type athen.type, Dhall::Variable["Type"],
+					TypeChecker.assert_type athen.type, Builtins[:Type],
 					                        "If branches must have types of type Type",
 					                        context: context
 					TypeChecker.assert aelse.type, athen.type,
@@ -225,13 +200,13 @@ module Dhall
 
 		class Operator
 			{
-				Dhall::Operator::And             => Dhall::Variable["Bool"],
-				Dhall::Operator::Or              => Dhall::Variable["Bool"],
-				Dhall::Operator::Equal           => Dhall::Variable["Bool"],
-				Dhall::Operator::NotEqual        => Dhall::Variable["Bool"],
-				Dhall::Operator::Plus            => Dhall::Variable["Natural"],
-				Dhall::Operator::Times           => Dhall::Variable["Natural"],
-				Dhall::Operator::TextConcatenate => Dhall::Variable["Text"]
+				Dhall::Operator::And             => Builtins[:Bool],
+				Dhall::Operator::Or              => Builtins[:Bool],
+				Dhall::Operator::Equal           => Builtins[:Bool],
+				Dhall::Operator::NotEqual        => Builtins[:Bool],
+				Dhall::Operator::Plus            => Builtins[:Natural],
+				Dhall::Operator::Times           => Builtins[:Natural],
+				Dhall::Operator::TextConcatenate => Builtins[:Text]
 			}.each do |node_type, type|
 				TypeChecker.register self, node_type, type
 			end
@@ -270,7 +245,7 @@ module Dhall
 			module IsList
 				def self.===(other)
 					other.is_a?(Dhall::Application) &&
-						other.function == Dhall::Variable["List"]
+						other.function == Builtins[:List]
 				end
 			end
 
@@ -387,7 +362,7 @@ module Dhall
 			end
 
 			def annotate(context)
-				TypeChecker.assert_type @expr.element_type, Dhall::Variable["Type"],
+				TypeChecker.assert_type @expr.element_type, Builtins[:Type],
 				                        "EmptyList element type not of type Type",
 				                        context: context
 
@@ -430,7 +405,7 @@ module Dhall
 				                   Util::ArrayOf.new(alist.element_type),
 				                   "Non-homogenous List"
 
-				TypeChecker.assert_type alist.element_type, Dhall::Variable["Type"],
+				TypeChecker.assert_type alist.element_type, Builtins[:Type],
 				                        "List type not of type Type", context: context
 
 				alist.annotation
@@ -447,7 +422,7 @@ module Dhall
 			def annotate(context)
 				TypeChecker.assert(
 					TypeChecker.for(@expr.value_type).annotate(context).type,
-					Dhall::Variable["Type"],
+					Builtins[:Type],
 					"OptionalNone element type not of type Type"
 				)
 
@@ -469,7 +444,7 @@ module Dhall
 				some = asome.with(value_type: asome.value.type)
 
 				type_type = TypeChecker.for(some.value_type).annotate(context).type
-				TypeChecker.assert type_type, Dhall::Variable["Type"],
+				TypeChecker.assert type_type, Builtins[:Type],
 				                   "Some type not of type Type, was: #{type_type}"
 
 				Dhall::TypeAnnotation.new(type: some.type, value: some)
@@ -486,7 +461,7 @@ module Dhall
 			def annotate(*)
 				Dhall::TypeAnnotation.new(
 					value: @expr,
-					type:  Dhall::Variable["Type"]
+					type:  Builtins[:Type]
 				)
 			end
 		end
@@ -562,7 +537,7 @@ module Dhall
 
 			class Selector
 				def self.for(annotated_record)
-					if annotated_record.type == Dhall::Variable["Type"]
+					if annotated_record.type == Builtins[:Type]
 						TypeSelector.new(annotated_record.value)
 					elsif annotated_record.type.class == Dhall::RecordType
 						new(annotated_record.type)
@@ -727,7 +702,7 @@ module Dhall
 
 					TypeChecker.assert(
 						kind,
-						Dhall::Variable["Type"],
+						Builtins[:Type],
 						"Merge must have kind Type"
 					)
 
@@ -934,10 +909,33 @@ module Dhall
 		end
 
 		BUILTIN_TYPES = {
+			"Bool"              => Builtins[:Type],
+			"Type"              => Builtins[:Kind],
+			"Kind"              => Builtins[:Sort],
+			"Natural"           => Builtins[:Type],
+			"Integer"           => Builtins[:Type],
+			"Double"            => Builtins[:Type],
+			"Text"              => Builtins[:Type],
+			"List"              => Dhall::Forall.of_arguments(
+				Builtins[:Type],
+				body: Builtins[:Type]
+			),
+			"Optional"          => Dhall::Forall.of_arguments(
+				Builtins[:Type],
+				body: Builtins[:Type]
+			),
+			"None"              => Dhall::Forall.new(
+				var:  "A",
+				type: Builtins[:Type],
+				body: Dhall::Application.new(
+					function: Builtins[:Optional],
+					argument: Dhall::Variable["A"]
+				)
+			),
 			"Natural/build"     => Dhall::Forall.of_arguments(
 				Dhall::Forall.new(
 					var:  "natural",
-					type: Dhall::Variable["Type"],
+					type: Builtins[:Type],
 					body: Dhall::Forall.new(
 						var:  "succ",
 						type: Dhall::Forall.of_arguments(
@@ -951,13 +949,13 @@ module Dhall
 						)
 					)
 				),
-				body: Dhall::Variable["Natural"]
+				body: Builtins[:Natural]
 			),
 			"Natural/fold"      => Dhall::Forall.of_arguments(
-				Dhall::Variable["Natural"],
+				Builtins[:Natural],
 				body: Dhall::Forall.new(
 					var:  "natural",
-					type: Dhall::Variable["Type"],
+					type: Builtins[:Type],
 					body: Dhall::Forall.new(
 						var:  "succ",
 						type: Dhall::Forall.of_arguments(
@@ -973,36 +971,36 @@ module Dhall
 				)
 			),
 			"Natural/isZero"    => Dhall::Forall.of_arguments(
-				Dhall::Variable["Natural"],
-				body: Dhall::Variable["Bool"]
+				Builtins[:Natural],
+				body: Builtins[:Bool]
 			),
 			"Natural/even"      => Dhall::Forall.of_arguments(
-				Dhall::Variable["Natural"],
-				body: Dhall::Variable["Bool"]
+				Builtins[:Natural],
+				body: Builtins[:Bool]
 			),
 			"Natural/odd"       => Dhall::Forall.of_arguments(
-				Dhall::Variable["Natural"],
-				body: Dhall::Variable["Bool"]
+				Builtins[:Natural],
+				body: Builtins[:Bool]
 			),
 			"Natural/toInteger" => Dhall::Forall.of_arguments(
-				Dhall::Variable["Natural"],
-				body: Dhall::Variable["Integer"]
+				Builtins[:Natural],
+				body: Builtins[:Integer]
 			),
 			"Natural/show"      => Dhall::Forall.of_arguments(
-				Dhall::Variable["Natural"],
-				body: Dhall::Variable["Text"]
+				Builtins[:Natural],
+				body: Builtins[:Text]
 			),
 			"Text/show"         => Dhall::Forall.of_arguments(
-				Dhall::Variable["Text"],
-				body: Dhall::Variable["Text"]
+				Builtins[:Text],
+				body: Builtins[:Text]
 			),
 			"List/build"        => Dhall::Forall.new(
 				var:  "a",
-				type: Dhall::Variable["Type"],
+				type: Builtins[:Type],
 				body: Dhall::Forall.of_arguments(
 					Dhall::Forall.new(
 						var:  "list",
-						type: Dhall::Variable["Type"],
+						type: Builtins[:Type],
 						body: Dhall::Forall.new(
 							var:  "cons",
 							type: Dhall::Forall.of_arguments(
@@ -1018,22 +1016,22 @@ module Dhall
 						)
 					),
 					body: Dhall::Application.new(
-						function: Dhall::Variable["List"],
+						function: Builtins[:List],
 						argument: Dhall::Variable["a"]
 					)
 				)
 			),
 			"List/fold"         => Dhall::Forall.new(
 				var:  "a",
-				type: Dhall::Variable["Type"],
+				type: Builtins[:Type],
 				body: Dhall::Forall.of_arguments(
 					Dhall::Application.new(
-						function: Dhall::Variable["List"],
+						function: Builtins[:List],
 						argument: Dhall::Variable["a"]
 					),
 					body: Dhall::Forall.new(
 						var:  "list",
-						type: Dhall::Variable["Type"],
+						type: Builtins[:Type],
 						body: Dhall::Forall.new(
 							var:  "cons",
 							type: Dhall::Forall.of_arguments(
@@ -1052,56 +1050,56 @@ module Dhall
 			),
 			"List/length"       => Dhall::Forall.new(
 				var:  "a",
-				type: Dhall::Variable["Type"],
+				type: Builtins[:Type],
 				body: Dhall::Forall.of_arguments(
 					Dhall::Application.new(
-						function: Dhall::Variable["List"],
+						function: Builtins[:List],
 						argument: Dhall::Variable["a"]
 					),
-					body: Dhall::Variable["Natural"]
+					body: Builtins[:Natural]
 				)
 			),
 			"List/head"         => Dhall::Forall.new(
 				var:  "a",
-				type: Dhall::Variable["Type"],
+				type: Builtins[:Type],
 				body: Dhall::Forall.of_arguments(
 					Dhall::Application.new(
-						function: Dhall::Variable["List"],
+						function: Builtins[:List],
 						argument: Dhall::Variable["a"]
 					),
 					body: Dhall::Application.new(
-						function: Dhall::Variable["Optional"],
+						function: Builtins[:Optional],
 						argument: Dhall::Variable["a"]
 					)
 				)
 			),
 			"List/last"         => Dhall::Forall.new(
 				var:  "a",
-				type: Dhall::Variable["Type"],
+				type: Builtins[:Type],
 				body: Dhall::Forall.of_arguments(
 					Dhall::Application.new(
-						function: Dhall::Variable["List"],
+						function: Builtins[:List],
 						argument: Dhall::Variable["a"]
 					),
 					body: Dhall::Application.new(
-						function: Dhall::Variable["Optional"],
+						function: Builtins[:Optional],
 						argument: Dhall::Variable["a"]
 					)
 				)
 			),
 			"List/indexed"      => Dhall::Forall.new(
 				var:  "a",
-				type: Dhall::Variable["Type"],
+				type: Builtins[:Type],
 				body: Dhall::Forall.of_arguments(
 					Dhall::Application.new(
-						function: Dhall::Variable["List"],
+						function: Builtins[:List],
 						argument: Dhall::Variable["a"]
 					),
 					body: Dhall::Application.new(
-						function: Dhall::Variable["List"],
+						function: Builtins[:List],
 						argument: Dhall::RecordType.new(
 							record: {
-								"index" => Dhall::Variable["Natural"],
+								"index" => Builtins[:Natural],
 								"value" => Dhall::Variable["a"]
 							}
 						)
@@ -1110,29 +1108,29 @@ module Dhall
 			),
 			"List/reverse"      => Dhall::Forall.new(
 				var:  "a",
-				type: Dhall::Variable["Type"],
+				type: Builtins[:Type],
 				body: Dhall::Forall.of_arguments(
 					Dhall::Application.new(
-						function: Dhall::Variable["List"],
+						function: Builtins[:List],
 						argument: Dhall::Variable["a"]
 					),
 					body: Dhall::Application.new(
-						function: Dhall::Variable["List"],
+						function: Builtins[:List],
 						argument: Dhall::Variable["a"]
 					)
 				)
 			),
 			"Optional/fold"     => Dhall::Forall.new(
 				var:  "a",
-				type: Dhall::Variable["Type"],
+				type: Builtins[:Type],
 				body: Dhall::Forall.of_arguments(
 					Dhall::Application.new(
-						function: Dhall::Variable["Optional"],
+						function: Builtins[:Optional],
 						argument: Dhall::Variable["a"]
 					),
 					body: Dhall::Forall.new(
 						var:  "optional",
-						type: Dhall::Variable["Type"],
+						type: Builtins[:Type],
 						body: Dhall::Forall.new(
 							var:  "just",
 							type: Dhall::Forall.of_arguments(
@@ -1150,11 +1148,11 @@ module Dhall
 			),
 			"Optional/build"    => Dhall::Forall.new(
 				var:  "a",
-				type: Dhall::Variable["Type"],
+				type: Builtins[:Type],
 				body: Dhall::Forall.of_arguments(
 					Dhall::Forall.new(
 						var:  "optional",
-						type: Dhall::Variable["Type"],
+						type: Builtins[:Type],
 						body: Dhall::Forall.new(
 							var:  "just",
 							type: Dhall::Forall.of_arguments(
@@ -1169,22 +1167,22 @@ module Dhall
 						)
 					),
 					body: Dhall::Application.new(
-						function: Dhall::Variable["Optional"],
+						function: Builtins[:Optional],
 						argument: Dhall::Variable["a"]
 					)
 				)
 			),
 			"Integer/show"      => Dhall::Forall.of_arguments(
-				Dhall::Variable["Integer"],
-				body: Dhall::Variable["Text"]
+				Builtins[:Integer],
+				body: Builtins[:Text]
 			),
 			"Integer/toDouble"  => Dhall::Forall.of_arguments(
-				Dhall::Variable["Integer"],
-				body: Dhall::Variable["Double"]
+				Builtins[:Integer],
+				body: Builtins[:Double]
 			),
 			"Double/show"       => Dhall::Forall.of_arguments(
-				Dhall::Variable["Double"],
-				body: Dhall::Variable["Text"]
+				Builtins[:Double],
+				body: Builtins[:Text]
 			)
 		}.freeze
 

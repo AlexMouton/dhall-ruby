@@ -64,8 +64,8 @@ module Dhall
 
 		class Double_show < Builtin
 			def call(arg)
-				if arg.is_a?(Double)
-					Text.new(value: arg.to_s)
+				if arg.is_a?(Dhall::Double)
+					Dhall::Text.new(value: arg.to_s)
 				else
 					super
 				end
@@ -74,8 +74,8 @@ module Dhall
 
 		class Integer_show < Builtin
 			def call(arg)
-				if arg.is_a?(Integer)
-					Text.new(value: arg.to_s)
+				if arg.is_a?(Dhall::Integer)
+					Dhall::Text.new(value: arg.to_s)
 				else
 					super
 				end
@@ -84,8 +84,8 @@ module Dhall
 
 		class Integer_toDouble < Builtin
 			def call(arg)
-				if arg.is_a?(Integer)
-					Double.new(value: arg.value.to_f)
+				if arg.is_a?(Dhall::Integer)
+					Dhall::Double.new(value: arg.value.to_f)
 				else
 					super
 				end
@@ -105,20 +105,20 @@ module Dhall
 
 			def call(arg)
 				arg.call(
-					Variable.new(name: "Natural"),
+					Natural.new,
 					Function.of_arguments(
-						Variable.new(name: "Natural"),
-						body: Variable["_"] + Natural.new(value: 1)
+						Natural.new,
+						body: Variable["_"] + Dhall::Natural.new(value: 1)
 					),
-					Natural.new(value: 0)
+					Dhall::Natural.new(value: 0)
 				)
 			end
 		end
 
 		class Natural_even < Builtin
 			def call(nat)
-				if nat.is_a?(Natural)
-					Bool.new(value: nat.even?)
+				if nat.is_a?(Dhall::Natural)
+					Dhall::Bool.new(value: nat.even?)
 				else
 					super
 				end
@@ -127,9 +127,9 @@ module Dhall
 
 		class Natural_fold < Builtin
 			include(ValueSemantics.for_attributes do
-				nat  Either(nil, Natural),    default: nil
-				type Either(nil, Expression), default: nil
-				f    Either(nil, Expression), default: nil
+				nat  Either(nil, Dhall::Natural), default: nil
+				type Either(nil, Expression),     default: nil
+				f    Either(nil, Expression),     default: nil
 			end)
 
 			def call(arg)
@@ -145,8 +145,8 @@ module Dhall
 
 		class Natural_isZero < Builtin
 			def call(nat)
-				if nat.is_a?(Natural)
-					Bool.new(value: nat.zero?)
+				if nat.is_a?(Dhall::Natural)
+					Dhall::Bool.new(value: nat.zero?)
 				else
 					super
 				end
@@ -155,8 +155,8 @@ module Dhall
 
 		class Natural_odd < Builtin
 			def call(nat)
-				if nat.is_a?(Natural)
-					Bool.new(value: nat.odd?)
+				if nat.is_a?(Dhall::Natural)
+					Dhall::Bool.new(value: nat.odd?)
 				else
 					super
 				end
@@ -165,8 +165,8 @@ module Dhall
 
 		class Natural_show < Builtin
 			def call(nat)
-				if nat.is_a?(Natural)
-					Text.new(value: nat.to_s)
+				if nat.is_a?(Dhall::Natural)
+					Dhall::Text.new(value: nat.to_s)
 				else
 					super
 				end
@@ -175,8 +175,8 @@ module Dhall
 
 		class Natural_toInteger < Builtin
 			def call(nat)
-				if nat.is_a?(Natural)
-					Integer.new(value: nat.value)
+				if nat.is_a?(Dhall::Natural)
+					Dhall::Integer.new(value: nat.value)
 				else
 					super
 				end
@@ -202,7 +202,7 @@ module Dhall
 			def call(arg)
 				fill_or_call(arg) do
 					arg.call(
-						Variable["List"].call(type),
+						List.new.call(type),
 						cons,
 						EmptyList.new(element_type: type)
 					)
@@ -214,8 +214,8 @@ module Dhall
 			def cons
 				Function.of_arguments(
 					type,
-					Variable["List"].call(type.shift(1, "_", 0)),
-					body: List.of(Variable["_", 1]).concat(Variable["_"])
+					List.new.call(type.shift(1, "_", 0)),
+					body: Dhall::List.of(Variable["_", 1]).concat(Variable["_"])
 				)
 			end
 		end
@@ -242,7 +242,7 @@ module Dhall
 
 			def call(arg)
 				fill_or_call(arg) do
-					if arg.is_a?(List)
+					if arg.is_a?(Dhall::List)
 						arg.first
 					else
 						super
@@ -258,7 +258,7 @@ module Dhall
 
 			def call(arg)
 				fill_or_call(arg) do
-					if arg.is_a?(List)
+					if arg.is_a?(Dhall::List)
 						_call(arg)
 					else
 						super
@@ -272,7 +272,7 @@ module Dhall
 				arg.map(type: indexed_type(type)) { |x, idx|
 					Record.new(
 						record: {
-							"index" => Natural.new(value: idx),
+							"index" => Dhall::Natural.new(value: idx),
 							"value" => x
 						}
 					)
@@ -282,7 +282,7 @@ module Dhall
 			def indexed_type(value_type)
 				RecordType.new(
 					record: {
-						"index" => Variable.new(name: "Natural"),
+						"index" => Natural.new,
 						"value" => value_type
 					}
 				)
@@ -296,7 +296,7 @@ module Dhall
 
 			def call(arg)
 				fill_or_call(arg) do
-					if arg.is_a?(List)
+					if arg.is_a?(Dhall::List)
 						arg.last
 					else
 						super
@@ -312,8 +312,8 @@ module Dhall
 
 			def call(arg)
 				fill_or_call(arg) do
-					if arg.is_a?(List)
-						Natural.new(value: arg.length)
+					if arg.is_a?(Dhall::List)
+						Dhall::Natural.new(value: arg.length)
 					else
 						super
 					end
@@ -328,7 +328,7 @@ module Dhall
 
 			def call(arg)
 				fill_or_call(arg) do
-					if arg.is_a?(List)
+					if arg.is_a?(Dhall::List)
 						arg.reverse
 					else
 						super
@@ -356,7 +356,7 @@ module Dhall
 			def call(arg)
 				fill_or_call(arg) do
 					arg.call(
-						Variable["Optional"].call(type),
+						Optional.new.call(type),
 						some,
 						OptionalNone.new(value_type: type)
 					)
@@ -368,7 +368,7 @@ module Dhall
 			def some
 				Function.of_arguments(
 					type,
-					body: Optional.new(
+					body: Dhall::Optional.new(
 						value:      Variable["_"],
 						value_type: type
 					)
@@ -405,8 +405,8 @@ module Dhall
 			)
 
 			def call(arg)
-				if arg.is_a?(Text)
-					Text.new(
+				if arg.is_a?(Dhall::Text)
+					Dhall::Text.new(
 						value: "\"#{arg.value.gsub(
 							/["\$\\\b\f\n\r\t\u0000-\u001F]/,
 							&ENCODE
@@ -418,8 +418,47 @@ module Dhall
 			end
 		end
 
+		class Bool < Builtin
+		end
+
+		class Optional < Builtin
+		end
+
+		class Natural < Builtin
+		end
+
+		class Integer < Builtin
+		end
+
+		class Double < Builtin
+		end
+
+		class Text < Builtin
+		end
+
+		class List < Builtin
+		end
+
+		class None < Builtin
+			def call(arg)
+				OptionalNone.new(value_type: arg)
+			end
+		end
+
+		class Type < Builtin
+		end
+
+		class Kind < Builtin
+		end
+
+		class Sort < Builtin
+		end
+
 		# rubocop:enable Style/ClassAndModuleCamelCase
 
-		ALL = Hash[constants.map { |c| [c.to_s.tr("_", "/"), const_get(c)] }]
+		def self.[](k)
+			const = constants.find { |c| c.to_s.tr("_", "/").to_sym == k }
+			const && const_get(const).new
+		end
 	end
 end

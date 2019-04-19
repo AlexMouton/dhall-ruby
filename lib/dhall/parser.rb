@@ -325,7 +325,7 @@ module Dhall
 				return Dhall::Bool.new(value: true) if name == "True"
 				return Dhall::Bool.new(value: false) if name == "False"
 
-				(!name.quoted? && Dhall::Builtins::ALL[name]&.new) ||
+				(!name.quoted? && Dhall::Builtins[name.to_sym]) ||
 					Variable.new(
 						name:  name,
 						index: capture(:natural_literal)&.string.to_i

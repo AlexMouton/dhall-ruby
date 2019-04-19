@@ -171,9 +171,9 @@ class TestReadme < Minitest::Test
 		assert_equal(
 			Dhall::Optional.new(
 				value:      Dhall::Natural.new(value: 2),
-				value_type: Dhall::Variable["Natural"]
+				value_type: Dhall::Builtins[:Natural]
 			),
-			SOME.map(type: Dhall::Variable["Natural"]) { |x| x + 1 }
+			SOME.map(type: Dhall::Builtins[:Natural]) { |x| x + 1 }
 		)
 	end
 
@@ -187,15 +187,15 @@ class TestReadme < Minitest::Test
 
 	def test_none_map
 		assert_equal(
-			Dhall::OptionalNone.new(value_type: Dhall::Variable["Natural"]),
+			Dhall::OptionalNone.new(value_type: Dhall::Builtins[:Natural]),
 			NONE.map { |x| x + 1 }
 		)
 	end
 
 	def test_none_map_with_type
 		assert_equal(
-			Dhall::OptionalNone.new(value_type: Dhall::Variable["Natural"]),
-			NONE.map(type: Dhall::Variable["Natural"]) { |x| x + 1 }
+			Dhall::OptionalNone.new(value_type: Dhall::Builtins[:Natural]),
+			NONE.map(type: Dhall::Builtins[:Natural]) { |x| x + 1 }
 		)
 	end
 
@@ -222,8 +222,8 @@ class TestReadme < Minitest::Test
 			Dhall::List.new(elements: [
 				Dhall::Natural.new(value: 2),
 				Dhall::Natural.new(value: 3)
-			], element_type: Dhall::Variable["Natural"]),
-			LIST.map(type: Dhall::Variable["Natural"]) { |x| x + 1 }
+			], element_type: Dhall::Builtins[:Natural]),
+			LIST.map(type: Dhall::Builtins[:Natural]) { |x| x + 1 }
 		)
 	end
 
@@ -238,7 +238,7 @@ class TestReadme < Minitest::Test
 		assert_equal(
 			Dhall::Optional.new(
 				value:      Dhall::Natural.new(value: 1),
-				value_type: Dhall::Variable["Natural"]
+				value_type: Dhall::Builtins[:Natural]
 			),
 			LIST.first
 		)
@@ -248,7 +248,7 @@ class TestReadme < Minitest::Test
 		assert_equal(
 			Dhall::Optional.new(
 				value:      Dhall::Natural.new(value: 2),
-				value_type: Dhall::Variable["Natural"]
+				value_type: Dhall::Builtins[:Natural]
 			),
 			LIST.last
 		)
@@ -258,7 +258,7 @@ class TestReadme < Minitest::Test
 		assert_equal(
 			Dhall::Optional.new(
 				value:      Dhall::Natural.new(value: 1),
-				value_type: Dhall::Variable["Natural"]
+				value_type: Dhall::Builtins[:Natural]
 			),
 			LIST[0]
 		)
@@ -266,7 +266,7 @@ class TestReadme < Minitest::Test
 
 	def test_list_index_100
 		assert_equal(
-			Dhall::OptionalNone.new(value_type: Dhall::Variable["Natural"]),
+			Dhall::OptionalNone.new(value_type: Dhall::Builtins[:Natural]),
 			LIST[100]
 		)
 	end
@@ -276,7 +276,7 @@ class TestReadme < Minitest::Test
 			Dhall::List.new(elements: [
 				Dhall::Natural.new(value: 2),
 				Dhall::Natural.new(value: 1)
-			], element_type: Dhall::Variable["Natural"]),
+			], element_type: Dhall::Builtins[:Natural]),
 			LIST.reverse
 		)
 	end

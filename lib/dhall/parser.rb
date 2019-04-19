@@ -109,11 +109,33 @@ module Dhall
 
 		module ApplicationExpression
 			def value
-				some = capture(:some) ? [Variable["Some"]] : []
-				els = some + captures(:import_expression).map(&:value)
+				first_expr = [capture(:first_application_expression).value]
+				els = first_expr + captures(:import_expression).map(&:value)
 				els.reduce do |f, arg|
 					Application.for(function: f, argument: arg)
 				end
+			end
+		end
+
+		module FirstApplicationExpression
+			def value
+				if captures.key?(:merge)
+					merge
+				elsif captures.key?(:some)
+					Optional.new(
+						value: capture(:import_expression).value
+					)
+				else
+					super
+				end
+			end
+
+			def merge
+				Merge.new(
+					record: captures(:import_expression)[0].value,
+					input:  captures(:import_expression)[1].value,
+					type:   nil
+				)
 			end
 		end
 
@@ -139,11 +161,23 @@ module Dhall
 		end
 
 		module Label
+			module Quoted
+				def quoted?
+					true
+				end
+			end
+
+			module Unquoted
+				def quoted?
+					false
+				end
+			end
+
 			def value
 				if first.string == "`"
-					matches[1].string
+					matches[1].string.extend(Quoted)
 				else
-					string
+					string.extend(Unquoted)
 				end
 			end
 		end
@@ -291,7 +325,7 @@ module Dhall
 				return Dhall::Bool.new(value: true) if name == "True"
 				return Dhall::Bool.new(value: false) if name == "False"
 
-				Dhall::Builtins::ALL[name]&.new ||
+				(!name.quoted? && Dhall::Builtins::ALL[name]&.new) ||
 					Variable.new(
 						name:  name,
 						index: capture(:natural_literal)&.string.to_i

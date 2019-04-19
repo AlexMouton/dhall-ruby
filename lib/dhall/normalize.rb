@@ -355,16 +355,6 @@ module Dhall
 		end
 	end
 
-	class Number
-	end
-
-	class Natural; end
-	class Integer; end
-	class Double; end
-
-	class Text
-	end
-
 	class TextLiteral
 		def normalize
 			TextLiteral.for(*super.flatten.chunks)
@@ -375,9 +365,6 @@ module Dhall
 				chunk.is_a?(TextLiteral) ? chunk.chunks : chunk
 			end)
 		end
-	end
-
-	class Import
 	end
 
 	class LetIn

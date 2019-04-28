@@ -45,7 +45,7 @@ Wherever possible, you should use the `Promise` API and treat `Dhall.load` as an
 
     Dhall.load("1 + 1").sync # => #<Dhall::Natural value=2>
 
-**This will block the thread it is run from until the whole load operation is complete.  Never call #sync from an async context.**
+**This will block the thread it is run from until the whole load operation is complete.  Never call `#sync` from an async context.**
 
 ### Customizing Import Resolution
 
@@ -240,6 +240,25 @@ You may wish to convert your existing Ruby objects to Dhall expressions.  This c
     {}.as_dhall # => #<Dhall::EmptyRecord >
 
 Many methods on Dhall expressions call `#as_dhall` on their arguments, so you can define it on your own objects to produce a custom serialization.
+
+If your object is already set up to customise its YAML serialization using `#encode_with`, the default `#as_dhall` implementation will use that.
+
+When you want a full replacement for `YAML.safe_load` you can use the `Dhall::Coder` API:
+
+    Dhall::Coder.dump(1)               # => "\x82\x0F\x01"
+    Dhall::Coder.load("\x82\x0F\x01")  # => 1
+    Dhall::Coder.dump(Object.new)      # => ArgumentError
+
+    coder = Dhall::Coder.new(safe: Object)
+    coder.load_async(coder.dump(Object.new)).then do |value|
+      value # => #<Object:0x...>
+    end
+
+**Warning: calling `Dhall::Coder.load` or `Dhall::Coder#load` on an expression with imports will perform synchronous IO. See the warnings for the `#sync` method above.**
+
+Both `Dhall::Coder` and all instances of `Dhall::Coder` are compatible to drop-in for `ActiveRecord::Base#serialize` like so in your models:
+
+    serialize :column, Dhall::Coder
 
 ## Porting from YAML or JSON Configuration
 

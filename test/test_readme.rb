@@ -399,4 +399,23 @@ class TestReadme < Minitest::Test
 	def test_union_extract
 		assert_equal Dhall::Natural.new(value: 1), UNION.extract
 	end
+
+	def test_coder_dump
+		assert_equal "\x82\x0F\x01".b, Dhall::Coder.dump(1)
+	end
+
+	def test_coder_load
+		assert_equal 1, Dhall::Coder.load("\x82\x0F\x01".b)
+	end
+
+	def test_coder_dump_object
+		assert_raises ArgumentError do
+			Dhall::Coder.dump(Object.new)
+		end
+	end
+
+	def test_coder_roundtrip
+		coder = Dhall::Coder.new(safe: Object)
+		assert_equal Object, coder.load_async(coder.dump(Object.new)).sync.class
+	end
 end

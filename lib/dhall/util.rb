@@ -85,6 +85,18 @@ module Dhall
 			end
 		end
 
+		def self.psych_coder_for(tag, v)
+			c = Psych::Coder.new(tag)
+			case v
+			when Hash
+				c.map = v
+			when Array
+				c.seq = v
+			else
+				c.scalar = v
+			end
+		end
+
 		def self.psych_coder_from(tag, o)
 			coder = Psych::Coder.new(tag)
 
@@ -97,6 +109,12 @@ module Dhall
 			end
 
 			coder
+		end
+
+		def self.transform_keys(hash_or_not)
+			return hash_or_not unless hash_or_not.is_a?(Hash)
+
+			Hash[hash_or_not.map { |k, v| [(yield k), v] }]
 		end
 	end
 end

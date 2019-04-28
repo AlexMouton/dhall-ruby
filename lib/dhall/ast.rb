@@ -1055,7 +1055,7 @@ module Dhall
 		end)
 
 		def self.as_dhall
-			Builtins[:Double]
+			Builtins[:Text]
 		end
 
 		def <<(other)

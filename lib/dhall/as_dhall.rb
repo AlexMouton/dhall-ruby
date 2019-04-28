@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "ostruct"
+require "psych"
 
 module Dhall
 	module AsDhall
@@ -189,18 +190,28 @@ module Dhall
 			end
 		end
 
+		refine ::Psych::Coder do
+			def as_dhall
+				case type
+				when :seq
+					seq
+				when :map
+					map
+				else
+					scalar
+				end.as_dhall
+			end
+		end
+
 		refine ::Object do
 			def as_dhall
-				ivars = instance_variables.each_with_object({}) { |ivar, h|
-					h[ivar.to_s[1..-1]] = instance_variable_get(ivar)
-				}.as_dhall
-
-				type = TypeChecker.for(ivars).annotate(TypeChecker::Context.new).type
 				tag = self.class.name
+				expr = Util.psych_coder_from(tag, self).as_dhall
+				type = TypeChecker.for(expr).annotate(TypeChecker::Context.new).type
 				Union.from(
 					UnionType.new(alternatives: { tag => type }),
 					tag,
-					ivars
+					expr
 				)
 			end
 		end

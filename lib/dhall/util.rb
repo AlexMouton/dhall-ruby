@@ -84,5 +84,19 @@ module Dhall
 				end]
 			end
 		end
+
+		def self.psych_coder_from(tag, o)
+			coder = Psych::Coder.new(tag)
+
+			if o.respond_to?(:encode_with)
+				o.encode_with(coder)
+			else
+				o.instance_variables.each do |ivar|
+					coder[ivar.to_s[1..-1]] = o.instance_variable_get(ivar)
+				end
+			end
+
+			coder
+		end
 	end
 end

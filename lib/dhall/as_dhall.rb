@@ -179,13 +179,12 @@ module Dhall
 
 		refine ::OpenStruct do
 			def as_dhall
-				annotation = TypeChecker
-					            .for(to_h.as_dhall)
-					            .annotate(TypeChecker::Context.new)
-				Union.new(
-					tag:          "OpenStruct",
-					value:        annotation,
-					alternatives: UnionType.new(alternatives: {})
+				expr = to_h.as_dhall
+				type = TypeChecker.for(expr).annotate(TypeChecker::Context.new).type
+				Union.from(
+					UnionType.new(alternatives: { "OpenStruct" => type }),
+					"OpenStruct",
+					expr
 				)
 			end
 		end

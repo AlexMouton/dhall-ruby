@@ -318,18 +318,21 @@ module Dhall
 			end
 		end
 
-		module Identifier
+		module Variable
 			def value
-				name = capture(:any_label).value
+				Dhall::Variable.new(
+					name:  capture(:nonreserved_label).value,
+					index: capture(:natural_literal)&.string.to_i
+				)
+			end
+		end
 
-				return Dhall::Bool.new(value: true) if name == "True"
-				return Dhall::Bool.new(value: false) if name == "False"
+		module Builtin
+			def value
+				return Dhall::Bool.new(value: true) if string == "True"
+				return Dhall::Bool.new(value: false) if string == "False"
 
-				(!name.quoted? && Dhall::Builtins[name.to_sym]) ||
-					Variable.new(
-						name:  name,
-						index: capture(:natural_literal)&.string.to_i
-					)
+				Dhall::Builtins[string.to_sym]
 			end
 		end
 

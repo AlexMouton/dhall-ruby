@@ -118,8 +118,8 @@ class RuleFormatter
 		end
 
 		if name == :"nonreserved-label"
-			return "reserved_identifier simple_label_next_char+ | " \
-			       "!reserved_identifier label"
+			return "builtin simple_label_next_char+ | " \
+			       "!builtin label"
 		end
 
 		case rule
@@ -169,19 +169,12 @@ abnf.each do |name, rule|
 	puts "rule #{name.to_s.tr("-", "_")}"
 	print "\t(#{formatter.format_rule(name, rule)})"
 	extension = name.to_s.split(/-/).map(&:capitalize).join
-	if Dhall::Parser.const_defined?(extension)
+	if Dhall::Parser.const_defined?(extension, false)
 		puts " <Dhall::Parser::#{extension}>"
 	else
 		puts
 	end
 	puts "end"
 end
-
-puts "rule reserved_identifier"
-print "\t"
-puts Dhall::Builtins.constants.map { |name|
-	"\"#{name.to_s.tr("_", "/")}\""
-}.join(" |\n\t")
-puts "end"
 
 puts "end"

@@ -18,10 +18,11 @@ class TestAsDhall < Minitest::Test
 		)
 	end
 
-	def test_string_failure
-		assert_raises Encoding::UndefinedConversionError do
+	def test_string_binary
+		assert_equal(
+			Dhall::List.new(elements: [Dhall::Natural.new(value: 0xff)]),
 			"\xff".b.as_dhall
-		end
+		)
 	end
 
 	def test_symbol

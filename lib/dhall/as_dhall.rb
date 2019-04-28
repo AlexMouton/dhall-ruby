@@ -35,7 +35,11 @@ module Dhall
 
 		refine ::String do
 			def as_dhall
-				Text.new(value: self)
+				if encoding == Encoding::BINARY
+					bytes.as_dhall
+				else
+					Text.new(value: self)
+				end
 			end
 		end
 

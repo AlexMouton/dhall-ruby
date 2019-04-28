@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "securerandom"
 require "minitest/autorun"
 
 require "dhall"
@@ -16,12 +17,6 @@ class TestLoad < Minitest::Test
 	def test_load_invalid_utf8
 		assert_raises ArgumentError do
 			Dhall.load("\xc3\x28").sync
-		end
-	end
-
-	def test_load_invalid_utf8_binary_input
-		assert_raises ArgumentError do
-			Dhall.load("\xc3\x28".b).sync
 		end
 	end
 
@@ -65,5 +60,48 @@ class TestLoad < Minitest::Test
 			),
 			Dhall.load_raw("1 + \"hai\"")
 		)
+	end
+
+	def test_load_parse_timeout
+		Dhall::Parser.stub(:parse, ->(*) { sleep 1 }) do
+			assert_raises Dhall::TimeoutException do
+				Dhall.load("./start", timeout: 0.1).sync
+			end
+		end
+	end
+
+	def test_load_normalize_timeout
+		ack = <<~DHALL
+			let iter =
+				λ(f : Natural → Natural) → λ(n : Natural) →
+				Natural/fold n Natural f (f (1))
+			in
+				λ(m : Natural) →
+					Natural/fold m (Natural → Natural) iter (λ(x : Natural) → x + 1)
+		DHALL
+		assert_raises Dhall::TimeoutException do
+			Dhall.load("(#{ack}) 10 10", timeout: 0.1).sync
+		end
+	end
+
+	def test_load_resolve_timeout
+		resolver = Dhall::Resolvers::LocalOnly.new(
+			path_reader: lambda do |sources|
+				sources.map do |_|
+					Promise.resolve(nil).then do
+						sleep 0.1
+						"./#{SecureRandom.hex}"
+					end
+				end
+			end
+		)
+
+		assert_raises Dhall::TimeoutException do
+			Dhall.load(
+				"./start",
+				resolver: resolver,
+				timeout:  0.1
+			).sync
+		end
 	end
 end

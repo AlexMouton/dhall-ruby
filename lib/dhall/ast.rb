@@ -1444,15 +1444,15 @@ module Dhall
 		end
 
 		class Expression
-			def self.call(import_value)
+			def self.call(import_value, deadline: Util::NoDeadline.new)
 				return import_value if import_value.is_a?(Dhall::Expression)
 
-				Dhall.load_raw(import_value)
+				Dhall.load_raw(import_value, timeout: deadline.timeout)
 			end
 		end
 
 		class Text
-			def self.call(import_value)
+			def self.call(import_value, deadline: Util::NoDeadline.new)
 				Dhall::Text.new(value: import_value)
 			end
 		end
@@ -1494,8 +1494,8 @@ module Dhall
 			path.chain_onto(relative_to).canonical
 		end
 
-		def parse_and_check(raw)
-			integrity_check.check(import_type.call(raw))
+		def parse_and_check(raw, deadline: Util::NoDeadline.new)
+			integrity_check.check(import_type.call(raw, deadline: deadline))
 		end
 
 		def cache_key(relative_to)

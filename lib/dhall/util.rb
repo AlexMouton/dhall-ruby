@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "timeout"
+
 module Dhall
 	module Util
 		class AllOf
@@ -58,6 +60,46 @@ module Dhall
 
 			def ===(other)
 				!(@validator === other)
+			end
+		end
+
+		class Deadline
+			def self.for_timeout(timeout)
+				if timeout.nil? || timeout.to_f.infinite?
+					NoDeadline.new
+				else
+					new(Time.now + timeout)
+				end
+			end
+
+			def initialize(deadline)
+				@deadline = deadline
+			end
+
+			def exceeded?
+				@deadline < Time.now
+			end
+
+			def timeout
+				[0.000000000000001, @deadline - Time.now].max
+			end
+
+			def timeout_block(&block)
+				Timeout.timeout(timeout, TimeoutException, &block)
+			end
+		end
+
+		class NoDeadline
+			def exceeded?
+				false
+			end
+
+			def timeout
+				nil
+			end
+
+			def timeout_block
+				yield
 			end
 		end
 

@@ -47,6 +47,14 @@ Wherever possible, you should use the `Promise` API and treat `Dhall.load` as an
 
 **This will block the thread it is run from until the whole load operation is complete.  Never call `#sync` from an async context.**
 
+### Timeout
+
+It is possible for malicious entities to craft Dhall expressions which take an unreasonable amount of time to load.  To protect against this, `Dhall.load` implements a timeout mechanism with a default of 10 seconds.  You may specify an alternate timeout like so:
+
+	Dhall.load("1 + 1", timeout: 1)               # 1 second timeout
+	Dhall.load("1 + 1", timeout: 0.1)             # 0.1 second timeut
+	Dhall.load("1 + 1", timeout: Float::INFINITY) # Never timeout
+
 ### Customizing Import Resolution
 
 You may optionally pass `Dhall.load` a resolver that will be used to resolve all imports during the load process:

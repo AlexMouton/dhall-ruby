@@ -31,6 +31,7 @@ module Dhall
 		end
 
 		PreflightCORS = lambda do |source, parent_origin|
+			timeout = source.deadline.timeout
 			uri = source.uri
 			if parent_origin != "localhost" && parent_origin != source.origin
 				req = Net::HTTP::Options.new(uri)
@@ -41,7 +42,11 @@ module Dhall
 				r = Net::HTTP.start(
 					uri.hostname,
 					uri.port,
-					use_ssl: uri.scheme == "https"
+					use_ssl:       uri.scheme == "https",
+					open_timeout:  timeout,
+					ssl_timeout:   timeout,
+					read_timeout:  timeout,
+					write_timeout: timeout
 				) { |http| http.request(req) }
 
 				raise ImportFailedException, source if r.code != "200"
@@ -56,6 +61,7 @@ module Dhall
 			sources.map do |source|
 				Promise.resolve(nil).then do
 					PreflightCORS.call(source, parent_origin)
+					timeout = source.deadline.timeout
 					uri = source.uri
 					req = Net::HTTP::Get.new(uri)
 					source.headers.each do |header|
@@ -64,7 +70,11 @@ module Dhall
 					r = Net::HTTP.start(
 						uri.hostname,
 						uri.port,
-						use_ssl: uri.scheme == "https"
+						use_ssl:       uri.scheme == "https",
+						open_timeout:  timeout,
+						ssl_timeout:   timeout,
+						read_timeout:  timeout,
+						write_timeout: timeout
 					) { |http| http.request(req) }
 
 					raise ImportFailedException, source if r.code != "200"
@@ -111,7 +121,7 @@ module Dhall
 			def call(sources)
 				@path_reader.call(sources).map.with_index do |promise, idx|
 					source = sources[idx]
-					if source.is_a?(Import::AbsolutePath) &&
+					if source.canonical.is_a?(Import::AbsolutePath) &&
 					   ["ipfs", "ipns"].include?(source.path.first)
 						gateway_fallback(source, promise)
 					else
@@ -148,7 +158,7 @@ module Dhall
 
 			def register(source)
 				p = Promise.new
-				if @parents.include?(source)
+				if @parents.include?(source.canonical)
 					p.reject(ImportLoopException.new(source))
 				else
 					@set[source] << p
@@ -163,6 +173,8 @@ module Dhall
 
 			def reader
 				lambda do |sources|
+					raise TimeoutException if sources.any? { |s| s.deadline.exceeded? }
+
 					if @reader.arity == 2
 						@reader.call(sources, @parents.last&.origin || "localhost")
 					else
@@ -181,7 +193,24 @@ module Dhall
 			end
 		end
 
+		class SourceWithDeadline < SimpleDelegator
+			attr_reader :deadline
+
+			def initialize(source, deadline)
+				@source = source
+				@deadline = deadline
+
+				super(source)
+			end
+
+			def to_uri(*args)
+				self.class.new(super, deadline)
+			end
+		end
+
 		class Standard
+			attr_reader :deadline
+
 			def initialize(
 				path_reader: ReadPathSources,
 				http_reader: StandardReadHttpSources,
@@ -192,7 +221,16 @@ module Dhall
 				@http_resolutions = ResolutionSet.new(http_reader)
 				@https_resolutions = ResolutionSet.new(https_reader)
 				@env_resolutions = ResolutionSet.new(environment_reader)
+				@deadline = Util::NoDeadline.new
 				@cache = {}
+			end
+
+			def with_deadline(deadline)
+				dup.tap do |c|
+					c.instance_eval do
+						@deadline = deadline
+					end
+				end
 			end
 
 			def cache_fetch(key, &fallback)
@@ -204,11 +242,15 @@ module Dhall
 			end
 
 			def resolve_path(path_source)
-				@path_resolutions.register(path_source)
+				@path_resolutions.register(
+					SourceWithDeadline.new(path_source, @deadline)
+				)
 			end
 
 			def resolve_environment(env_source)
-				@env_resolutions.register(env_source)
+				@env_resolutions.register(
+					SourceWithDeadline.new(env_source, @deadline)
+				)
 			end
 
 			def resolve_http(http_source)
@@ -216,8 +258,9 @@ module Dhall
 					resolver:    self,
 					relative_to: Dhall::Import::RelativePath.new
 				).then do |headers|
+					source = http_source.with(headers: headers.normalize)
 					@http_resolutions.register(
-						http_source.with(headers: headers.normalize)
+						SourceWithDeadline.new(source, @deadline)
 					)
 				end
 			end
@@ -227,8 +270,9 @@ module Dhall
 					resolver:    self,
 					relative_to: Dhall::Import::RelativePath.new
 				).then do |headers|
+					source = https_source.with(headers: headers.normalize)
 					@https_resolutions.register(
-						https_source.with(headers: headers.normalize)
+						SourceWithDeadline.new(source, @deadline)
 					)
 				end
 			end
@@ -341,7 +385,7 @@ module Dhall
 			def resolve_raw(resolver:, relative_to:)
 				real_path = @expr.real_path(relative_to)
 				real_path.resolve(resolver).then do |result|
-					@expr.parse_and_check(result).resolve(
+					@expr.parse_and_check(result, deadline: resolver.deadline).resolve(
 						resolver:    resolver.child(real_path),
 						relative_to: real_path
 					)

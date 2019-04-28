@@ -22,18 +22,13 @@ module Dhall
 	end
 
 	def self.load_raw(source)
-		unless source.valid_encoding?
-			raise ArgumentError, "invalid byte sequence in #{source.encoding}"
-		end
+		source = Util.text_or_binary(source)
 
-		begin
-			return from_binary(source) if source.encoding == Encoding::BINARY
-		rescue Exception # rubocop:disable Lint/RescueException
-			# Parsing CBOR failed, so guess this is source text in standard UTF-8
-			return load_raw(source.force_encoding("UTF-8"))
+		if source.encoding == Encoding::BINARY
+			from_binary(source)
+		else
+			Parser.parse(source).value
 		end
-
-		Parser.parse(source.encode("UTF-8")).value
 	end
 
 	def self.dump(o)

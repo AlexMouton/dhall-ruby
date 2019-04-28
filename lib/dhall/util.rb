@@ -116,5 +116,24 @@ module Dhall
 
 			Hash[hash_or_not.map { |k, v| [(yield k), v] }]
 		end
+
+		def self.utf8_if_possible(str)
+			utf8 = str.dup.force_encoding(Encoding::UTF_8)
+			utf8.valid_encoding? ? utf8 : str
+		end
+
+		def self.text_or_binary(str)
+			unless str.valid_encoding?
+				raise ArgumentError, "invalid byte sequence in #{str.encoding}"
+			end
+
+			if str.encoding == Encoding::BINARY
+				return str if str =~ /(?!\s)[[:cntrl:]]/
+
+				utf8_if_possible(str)
+			else
+				str.encode(Encoding::UTF_8)
+			end
+		end
 	end
 end

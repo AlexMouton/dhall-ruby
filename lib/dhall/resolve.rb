@@ -150,8 +150,9 @@ module Dhall
 		end
 
 		class ResolutionSet
-			def initialize(reader)
+			def initialize(reader, max_depth:)
 				@reader = reader
+				@max_depth = max_depth
 				@parents = []
 				@set = Hash.new { |h, k| h[k] = [] }
 			end
@@ -160,6 +161,9 @@ module Dhall
 				p = Promise.new
 				if @parents.include?(source.canonical)
 					p.reject(ImportLoopException.new(source))
+				elsif @parents.length + 1 > @max_depth
+					msg = "Max import depth of #{@max_depth} exceeded"
+					p.reject(ImportFailedException.new(msg))
 				else
 					@set[source] << p
 				end
@@ -215,12 +219,15 @@ module Dhall
 				path_reader: ReadPathSources,
 				http_reader: StandardReadHttpSources,
 				https_reader: http_reader,
-				environment_reader: ReadEnvironmentSources
+				environment_reader: ReadEnvironmentSources,
+				max_depth: Float::INFINITY
 			)
-				@path_resolutions = ResolutionSet.new(path_reader)
-				@http_resolutions = ResolutionSet.new(http_reader)
-				@https_resolutions = ResolutionSet.new(https_reader)
-				@env_resolutions = ResolutionSet.new(environment_reader)
+				@path_resolutions = ResolutionSet.new(path_reader, max_depth: max_depth)
+				@http_resolutions = ResolutionSet.new(http_reader, max_depth: max_depth)
+				@https_resolutions = ResolutionSet.new(https_reader, max_depth: max_depth)
+				@env_resolutions = ResolutionSet.new(
+					environment_reader, max_depth: max_depth
+				)
 				@deadline = Util::NoDeadline.new
 				@cache = {}
 			end
@@ -307,7 +314,8 @@ module Dhall
 				http_reader: ReadHttpSources,
 				https_reader: http_reader,
 				environment_reader: ReadEnvironmentSources,
-				ipfs_public_gateway: "cloudflare-ipfs.com"
+				ipfs_public_gateway: "cloudflare-ipfs.com",
+				max_depth: 50
 			)
 				super(
 					path_reader: ReadPathAndIPFSSources.new(
@@ -317,7 +325,7 @@ module Dhall
 						public_gateway: ipfs_public_gateway
 					),
 					http_reader: http_reader, https_reader: https_reader,
-					environment_reader: environment_reader
+					environment_reader: environment_reader, max_depth: max_depth
 				)
 			end
 		end
@@ -325,13 +333,15 @@ module Dhall
 		class LocalOnly < Standard
 			def initialize(
 				path_reader: ReadPathSources,
-				environment_reader: ReadEnvironmentSources
+				environment_reader: ReadEnvironmentSources,
+				max_depth: 50
 			)
 				super(
 					path_reader:        path_reader,
 					environment_reader: environment_reader,
 					http_reader:        RejectSources,
-					https_reader:       RejectSources
+					https_reader:       RejectSources,
+					max_depth:          max_depth
 				)
 			end
 		end

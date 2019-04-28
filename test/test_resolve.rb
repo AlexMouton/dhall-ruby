@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "base64"
+require "securerandom"
 require "webmock/minitest"
 require "minitest/autorun"
 
@@ -130,6 +131,26 @@ class TestResolve < Minitest::Test
 			),
 			subject(expr)
 		)
+	end
+
+	def test_forever_no_loop
+		resolver = Dhall::Resolvers::LocalOnly.new(
+			path_reader: lambda do |sources|
+				sources.map do |_|
+					Promise.resolve(nil).then do
+						"./#{SecureRandom.hex}"
+					end
+				end
+			end
+		)
+
+		assert_raises Dhall::ImportFailedException do
+			Dhall.load(
+				"./start",
+				resolver: resolver,
+				timeout:  Float::INFINITY
+			).sync
+		end
 	end
 
 	def test_missing

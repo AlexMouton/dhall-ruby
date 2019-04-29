@@ -149,6 +149,52 @@ module Dhall
 			end
 		end
 
+		module NoCache
+			def self.fetch(*)
+				yield
+			end
+		end
+
+		class RamCache
+			def initialize
+				@cache = {}
+			end
+
+			def fetch(key, &block)
+				return @cache[key] if @cache.key?(key)
+
+				Promise.resolve(nil).then(&block).then do |result|
+					@cache[key] = result
+				end
+			end
+		end
+
+		class StandardFileCache
+			def initialize(
+				dir=Pathname.new(ENV.fetch(
+					"XDG_CACHE_HOME", ENV.fetch("HOME") + "/.cache/"
+				)) + "dhall/"
+			)
+				dir.mkpath
+				@dir = dir
+				@ram = RamCache.new
+			end
+
+			def fetch(key, &block)
+				if key.is_a?(String) && key.start_with?("sha256:")
+					file = @dir + key.sub(/^sha256:/, "")
+					return Dhall.from_binary(file.binread) if file.exist?
+
+					Promise.resolve(nil).then(&block).then do |result|
+						file.open("wb") { |fh| fh.write(result.to_binary) }
+						result
+					end
+				else
+					@ram.fetch(key, &block)
+				end
+			end
+		end
+
 		class ResolutionSet
 			def initialize(reader, max_depth:)
 				@reader = reader
@@ -220,6 +266,7 @@ module Dhall
 				http_reader: StandardReadHttpSources,
 				https_reader: http_reader,
 				environment_reader: ReadEnvironmentSources,
+				cache: StandardFileCache.new,
 				max_depth: Float::INFINITY
 			)
 				@path_resolutions = ResolutionSet.new(path_reader, max_depth: max_depth)
@@ -229,7 +276,7 @@ module Dhall
 					environment_reader, max_depth: max_depth
 				)
 				@deadline = Util::NoDeadline.new
-				@cache = {}
+				@cache = cache
 			end
 
 			def with_deadline(deadline)
@@ -242,9 +289,7 @@ module Dhall
 
 			def cache_fetch(key, &fallback)
 				@cache.fetch(key) do
-					Promise.resolve(nil).then(&fallback).then do |result|
-						@cache[key] = result
-					end
+					Promise.resolve(nil).then(&fallback)
 				end
 			end
 
@@ -315,6 +360,7 @@ module Dhall
 				https_reader: http_reader,
 				environment_reader: ReadEnvironmentSources,
 				ipfs_public_gateway: "cloudflare-ipfs.com",
+				cache: RamCache.new,
 				max_depth: 50
 			)
 				super(
@@ -324,7 +370,7 @@ module Dhall
 						https_reader:   https_reader,
 						public_gateway: ipfs_public_gateway
 					),
-					http_reader: http_reader, https_reader: https_reader,
+					http_reader: http_reader, https_reader: https_reader, cache: cache,
 					environment_reader: environment_reader, max_depth: max_depth
 				)
 			end

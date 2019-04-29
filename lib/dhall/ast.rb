@@ -1500,7 +1500,7 @@ module Dhall
 
 		def cache_key(relative_to)
 			if integrity_check.protocol == :nocheck
-				real_path(relative_to).to_s
+				real_path(relative_to)
 			else
 				integrity_check.to_s
 			end

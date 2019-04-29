@@ -254,6 +254,37 @@ class TestResolve < Minitest::Test
 		assert_equal Dhall::Variable["_"], subject(expr)
 	end
 
+	def test_cache
+		req = stub_request(:get, "http://example.com/thing.dhall")
+		      .to_return(status: 200, body: "\x00".b)
+
+		expr = Dhall::Import.new(
+			Dhall::Import::IntegrityCheck.new(
+				"sha256", Dhall::Variable["_"].digest.hexdigest
+			),
+			Dhall::Import::Expression,
+			Dhall::Import::Http.new(nil, "example.com", "thing.dhall", nil)
+		)
+
+		cache = Dhall::Resolvers::RamCache.new
+
+		assert_equal(
+			Dhall::Variable["_"],
+			expr.resolve(
+				resolver: Dhall::Resolvers::Default.new(cache: cache)
+			).sync
+		)
+
+		assert_equal(
+			Dhall::Variable["_"],
+			expr.resolve(
+				resolver: Dhall::Resolvers::Default.new(cache: cache)
+			).sync
+		)
+
+		assert_requested(req, times: 1)
+	end
+
 	def test_ipfs
 		stub_request(:get, "http://localhost:8000/ipfs/TESTCID")
 			.to_return(status: 200, body: "\x00".b)

@@ -604,6 +604,25 @@ module Dhall
 			end
 		end
 
+		class Enum
+			TypeChecker.register self, Dhall::Enum
+
+			def initialize(enum)
+				@enum = enum
+			end
+
+			def annotate(context)
+				type = Dhall::UnionType.new(
+					alternatives: { @enum.tag => nil }
+				).merge(@enum.alternatives)
+
+				# Annotate to sanity check
+				TypeChecker.for(type).annotate(context)
+
+				Dhall::TypeAnnotation.new(value: @enum, type: type)
+			end
+		end
+
 		class Union
 			TypeChecker.register self, Dhall::Union
 

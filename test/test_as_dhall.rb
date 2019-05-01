@@ -27,9 +27,8 @@ class TestAsDhall < Minitest::Test
 
 	def test_symbol
 		assert_equal(
-			Dhall::Union.new(
+			Dhall::Enum.new(
 				tag:          "hai",
-				value:        nil,
 				alternatives: Dhall::UnionType.new(alternatives: {})
 			),
 			:hai.as_dhall

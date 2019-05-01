@@ -764,8 +764,21 @@ module Dhall
 
 	class UnionType < Expression
 		include(ValueSemantics.for_attributes do
-			alternatives Util::HashOf.new(::String, Either(Expression, nil))
+			alternatives Util::HashOf.new(::String, Either(Expression, nil)), default: {}
 		end)
+
+		def empty?
+			alternatives.empty?
+		end
+
+		def [](k)
+			alternatives.fetch(k)
+		end
+
+		def without(key)
+			key = key.to_s
+			with(alternatives: alternatives.reject { |k, _| k == key })
+		end
 
 		def record
 			alternatives
@@ -817,31 +830,28 @@ module Dhall
 	class Union < Expression
 		include(ValueSemantics.for_attributes do
 			tag          ::String
-			value        Either(Expression, nil)
+			value        Expression
 			alternatives UnionType
 		end)
 
 		def self.from(alts, tag, value)
-			new(
-				tag:          tag,
-				value:        value && TypeAnnotation.new(
-					value: value,
-					type:  alts.alternatives[tag]
-				),
-				alternatives: alts.with(
-					alternatives: alts.alternatives.reject { |alt, _| alt == tag }
+			if value.nil?
+				Enum.new(tag: tag, alternatives: alts)
+			else
+				new(
+					tag:          tag,
+					value:        TypeAnnotation.new(value: value, type: alts[tag]),
+					alternatives: alts.without(tag)
 				)
-			)
+			end
 		end
 
 		def to_s
-			value.nil? ? tag : extract.to_s
+			extract.to_s
 		end
 
 		def extract
-			if value.nil?
-				tag.to_sym
-			elsif value.is_a?(TypeAnnotation)
+			if value.is_a?(TypeAnnotation)
 				value.value
 			else
 				value
@@ -851,12 +861,8 @@ module Dhall
 		def reduce(handlers)
 			handlers = handlers.to_h
 			handler = handlers.fetch(tag.to_sym) { handlers.fetch(tag) }
-			if value.nil?
-				handler
-			else
-				(handler.respond_to?(:to_proc) ? handler.to_proc : handler)
-					.call(extract)
-			end
+			(handler.respond_to?(:to_proc) ? handler.to_proc : handler)
+				.call(extract)
 		end
 
 		def selection_syntax
@@ -869,22 +875,43 @@ module Dhall
 		end
 
 		def syntax
-			if value.nil?
-				selection_syntax
-			else
-				Application.new(
-					function: selection_syntax,
-					argument: value.is_a?(TypeAnnotation) ? value.value : value
-				)
-			end
+			Application.new(
+				function: selection_syntax,
+				argument: value.is_a?(TypeAnnotation) ? value.value : value
+			)
 		end
 
 		def as_json
-			if value.nil? || value.respond_to?(:type)
+			if value.respond_to?(:type)
 				syntax.as_json
 			else
 				[12, tag, value&.as_json, alternatives.as_json.last]
 			end
+		end
+	end
+
+	class Enum < Union
+		include(ValueSemantics.for_attributes do
+			tag          ::String
+			alternatives UnionType
+		end)
+
+		def reduce(handlers)
+			handlers = handlers.to_h
+			handler = handlers.fetch(tag.to_sym) { handlers.fetch(tag) }
+			handler
+		end
+
+		def to_s
+			tag
+		end
+
+		def extract
+			tag.to_sym
+		end
+
+		def as_json
+			selection_syntax.as_json
 		end
 	end
 

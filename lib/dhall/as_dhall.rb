@@ -24,9 +24,11 @@ module Dhall
 		end
 
 		def self.union_of(values_and_types)
-			z = [UnionType.new(alternatives: {}), []]
-			values_and_types.reduce(z) do |(ut, tags), (v, t)|
+			values_and_types.reduce([UnionType.new, []]) do |(ut, tags), (v, t)|
 				tag = tag_for(v, t)
+				if t.is_a?(UnionType) && t.alternatives.length == 1
+					tag, t = t.alternatives.to_a.first
+				end
 				[
 					ut.merge(UnionType.new(alternatives: { tag => t })),
 					tags + [tag]
@@ -46,9 +48,8 @@ module Dhall
 
 		refine ::Symbol do
 			def as_dhall
-				Dhall::Union.new(
+				Dhall::Enum.new(
 					tag:          to_s,
-					value:        nil,
 					alternatives: Dhall::UnionType.new(alternatives: {})
 				)
 			end

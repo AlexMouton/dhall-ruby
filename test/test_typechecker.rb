@@ -112,4 +112,18 @@ class TestTypechecker < Minitest::Test
 			)
 		end
 	end
+
+	def test_enum
+		union = Dhall::Enum.new(
+			tag:          "red",
+			alternatives: Dhall::UnionType.new(alternatives: {})
+		)
+
+		assert_equal(
+			Dhall::UnionType.new(alternatives: { "red" => nil }),
+			Dhall::TypeChecker.for(union).annotate(
+				Dhall::TypeChecker::Context.new
+			).type
+		)
+	end
 end

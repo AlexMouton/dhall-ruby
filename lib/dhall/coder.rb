@@ -117,7 +117,7 @@ module Dhall
 
 			refine Function do
 				def to_ruby(&decode)
-					->(*args) { decode[expr.call(*args)] }
+					->(*args) { decode[call(*args)] }
 				end
 			end
 

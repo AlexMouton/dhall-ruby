@@ -155,6 +155,14 @@ class TestCoder < Minitest::Test
 		end
 	end
 
+	def test_decode_proc
+		coder = Dhall::Coder.new(safe: [Proc, NilClass, Integer])
+		assert_equal(
+			2,
+			coder.decode(Dhall.load("\\(x: Natural) -> x + 1").sync).call(1)
+		)
+	end
+
 	class Custom
 		attr_reader :a, :b
 

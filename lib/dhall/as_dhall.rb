@@ -153,6 +153,10 @@ module Dhall
 					ut, tags = AsDhall.union_of(@values.zip(@types))
 
 					List.new(elements: @exprs.zip(tags).map do |(expr, tag)|
+						if expr.is_a?(Dhall::Union) && expr.alternatives.empty?
+							expr = expr.is_a?(Dhall::Enum) ? nil : expr.extract
+						end
+
 						Dhall::Union.from(ut, tag, expr)
 					end)
 				end

@@ -39,15 +39,23 @@ class TestCoder < Minitest::Test
 		)
 	end
 
+	class EmptyObject
+		def ==(other)
+			other.is_a?(EmptyObject)
+		end
+	end
+
 	def test_dump_array_heterogenous
 		assert_equal(
-			"\x86\x04\xF6\x83\x00\x83\t\x82\v\xA4fDoublefDoublegNatural" \
-			"gNaturaldNone\xF6dTextdTextgNatural\x82\x0F\x01\x83\t\x82\v\xA4" \
-			"fDoublefDoublegNaturalgNaturaldNone\xF6dTextdTextdNone\x83\x00\x83" \
-			"\t\x82\v\xA4fDoublefDoublegNaturalgNaturaldNone\xF6dTextdText" \
-			"fDouble\xFA?\x80\x00\x00\x83\x00\x83\t\x82\v\xA4fDoublefDoubleg" \
-			"NaturalgNaturaldNone\xF6dTextdTextdText\x82\x12ehello".b,
-			Dhall::Coder.dump([1, nil, 1.0, "hello"])
+			"\x86\x04\xF6\x83\x00\x83\t\x82\v\xA4gNaturalgNaturaldNone" \
+			"\xF6vTestCoder::EmptyObject\x82\a\xA0dboop\xF6gNatural\x82" \
+			"\x0F\x01\x83\t\x82\v\xA4gNaturalgNaturaldNone" \
+			"\xF6vTestCoder::EmptyObject\x82\a\xA0dboop\xF6dNone" \
+			"\x83\t\x82\v\xA4gNaturalgNaturaldNone\xF6vTestCoder::EmptyObject" \
+			"\x82\a\xA0dboop\xF6dboop\x83\x00\x83\t\x82\v\xA4" \
+			"gNaturalgNaturaldNone\xF6vTestCoder::EmptyObject" \
+			"\x82\a\xA0dboop\xF6vTestCoder::EmptyObject\x82\b\xA0".b,
+			Dhall::Coder.dump([1, nil, :boop, EmptyObject.new])
 		)
 	end
 
@@ -105,15 +113,19 @@ class TestCoder < Minitest::Test
 	end
 
 	def test_load_array_heterogenous
+		coder = Dhall::Coder.new(safe: Object) # unsafe coder
+
 		assert_equal(
-			[1, nil, 1.0, "hello"],
-			Dhall::Coder.load(
-				"\x86\x04\xF6\x83\x00\x83\t\x82\v\xA4fDoublefDoublegNatural" \
-				"gNaturaldNone\xF6dTextdTextgNatural\x82\x0F\x01\x83\t\x82\v\xA4" \
-				"fDoublefDoublegNaturalgNaturaldNone\xF6dTextdTextdNone\x83\x00\x83" \
-				"\t\x82\v\xA4fDoublefDoublegNaturalgNaturaldNone\xF6dTextdText" \
-				"fDouble\xFA?\x80\x00\x00\x83\x00\x83\t\x82\v\xA4fDoublefDoubleg" \
-				"NaturalgNaturaldNone\xF6dTextdTextdText\x82\x12ehello".b
+			[1, nil, :boop, EmptyObject.new],
+			coder.load(
+				"\x86\x04\xF6\x83\x00\x83\t\x82\v\xA4gNaturalgNaturaldNone" \
+				"\xF6vTestCoder::EmptyObject\x82\a\xA0dboop\xF6gNatural\x82" \
+				"\x0F\x01\x83\t\x82\v\xA4gNaturalgNaturaldNone" \
+				"\xF6vTestCoder::EmptyObject\x82\a\xA0dboop\xF6dNone" \
+				"\x83\t\x82\v\xA4gNaturalgNaturaldNone\xF6vTestCoder::EmptyObject" \
+				"\x82\a\xA0dboop\xF6dboop\x83\x00\x83\t\x82\v\xA4" \
+				"gNaturalgNaturaldNone\xF6vTestCoder::EmptyObject" \
+				"\x82\a\xA0dboop\xF6vTestCoder::EmptyObject\x82\b\xA0".b
 			)
 		)
 	end

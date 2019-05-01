@@ -121,13 +121,16 @@ module Dhall
 				end
 			end
 
+			refine Enum do
+				def to_ruby
+					extract == :None ? nil : extract
+				end
+			end
+
 			refine Union do
 				def to_ruby
-					if !value.nil? && tag.match(/\A\p{Upper}/) &&
-					   Object.const_defined?(tag)
+					if tag.match(/\A\p{Upper}/) && Object.const_defined?(tag)
 						yield extract, Object.const_get(tag)
-					elsif extract == :None
-						nil
 					else
 						yield extract
 					end

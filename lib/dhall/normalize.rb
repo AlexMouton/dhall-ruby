@@ -335,6 +335,12 @@ module Dhall
 		end
 	end
 
+	class Enum
+		def normalize
+			with(alternatives: alternatives.normalize)
+		end
+	end
+
 	class If
 		def normalize
 			normalized = super

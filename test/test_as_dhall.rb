@@ -122,6 +122,8 @@ class TestAsDhall < Minitest::Test
 				"Natural" => Dhall::Builtins[:Natural],
 				"Text"    => Dhall::Builtins[:Text],
 				"None"    => nil,
+				"boop"    => nil,
+				"Object"  => Dhall::EmptyRecordType.new,
 				"Bool"    => Dhall::Builtins[:Bool],
 				hash_key  => Dhall::RecordType.new(
 					record: {
@@ -140,6 +142,8 @@ class TestAsDhall < Minitest::Test
 				Dhall::Union.from(union_type, "Natural", Dhall::Natural.new(value: 1)),
 				Dhall::Union.from(union_type, "Text", Dhall::Text.new(value: "hai")),
 				Dhall::Union.from(union_type, "None", nil),
+				Dhall::Union.from(union_type, "boop", nil),
+				Dhall::Union.from(union_type, "Object", Dhall::EmptyRecord.new),
 				Dhall::Union.from(union_type, "Bool", Dhall::Bool.new(value: true)),
 				Dhall::Union.from(union_type, "Bool", Dhall::Bool.new(value: false)),
 				Dhall::Union.from(union_type, hash_key, Dhall::Record.new(
@@ -149,7 +153,7 @@ class TestAsDhall < Minitest::Test
 					elements: [Dhall::Natural.new(value: 1)]
 				))
 			]),
-			[1, "hai", nil, true, false, { a: 1 }, [1]].as_dhall
+			[1, "hai", nil, :boop, Object.new, true, false, { a: 1 }, [1]].as_dhall
 		)
 	end
 

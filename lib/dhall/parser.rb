@@ -276,9 +276,9 @@ module Dhall
 		module SingleQuoteLiteral
 			def value
 				chunks = capture(:single_quote_continue).value
-				indent = chunks.join.split(/\n/, -1).map { |line|
-					line.match(/^( *|\t*)/).to_s.length
-				}.min
+				raw = chunks.join + "\n"
+				indent = raw.scan(/^[ \t]*(?=[^ \t\r\n])/).map(&:length).min
+				indent = 0 if raw.end_with?("\n\n")
 
 				TextLiteral.for(
 					*chunks

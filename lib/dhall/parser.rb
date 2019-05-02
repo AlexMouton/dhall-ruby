@@ -276,14 +276,15 @@ module Dhall
 		module SingleQuoteLiteral
 			def value
 				chunks = capture(:single_quote_continue).value
-				raw = chunks.join + "\n"
-				indent = raw.scan(/^[ \t]*(?=[^ \t\r\n])/).map(&:length).min
-				indent = 0 if raw.end_with?("\n\n")
+				raw = chunks.join
+				indent = raw.scan(/^[ \t]*(?=[^ \t\r\n])/).map(&:chars)
+				            .reduce(&Util.method(:longest_common_prefix)).length
+				indent = 0 if raw.end_with?("\n")
 
 				TextLiteral.for(
 					*chunks
-					.chunk { |c| c != "\n" }
-					.flat_map { |(line, chunk)| line ? chunk[indent..-1] : chunk }
+						.chunk { |c| c != "\n" }
+						.flat_map { |(line, chunk)| line ? chunk[indent..-1] : chunk }
 				)
 			end
 		end

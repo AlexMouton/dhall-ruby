@@ -177,5 +177,9 @@ module Dhall
 				str.encode(Encoding::UTF_8)
 			end
 		end
+
+		def self.longest_common_prefix(a, b)
+			a.zip(b).take_while { |(x, y)| x == y }.map(&:first)
+		end
 	end
 end

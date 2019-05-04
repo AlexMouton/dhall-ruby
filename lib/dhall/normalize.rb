@@ -386,6 +386,17 @@ module Dhall
 				body: body.shift(amount, name, min_index + 1)
 			)
 		end
+
+		def substitute(svar, with_expr)
+			var = let.var
+			with(
+				let:  let.substitute(svar, with_expr),
+				body: body.substitute(
+					var == svar.name ? svar.with(index: svar.index + 1) : svar,
+					with_expr.shift(1, var, 0)
+				)
+			)
+		end
 	end
 
 	class LetBlock
@@ -395,6 +406,10 @@ module Dhall
 
 		def shift(amount, name, min_index)
 			unflatten.shift(amount, name, min_index)
+		end
+
+		def substitute(svar, with_expr)
+			unflatten.substitute(svar, with_expr)
 		end
 	end
 

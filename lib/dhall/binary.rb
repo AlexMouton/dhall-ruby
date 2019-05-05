@@ -223,6 +223,13 @@ module Dhall
 		end
 	end
 
+	def self.handle_tag(e)
+		return e unless e.is_a?(::CBOR::Tagged)
+		return e.value if e.tag == 55799
+
+		raise "Unknown tag: #{e.inspect}"
+	end
+
 	BINARY = {
 		::TrueClass    => ->(e) { Bool.new(value: e) },
 		::FalseClass   => ->(e) { Bool.new(value: e) },
@@ -230,6 +237,7 @@ module Dhall
 		::String       => ->(e) { Builtins[e.to_sym] || (raise "Unknown builtin") },
 		::Integer      => ->(e) { Variable.new(index: e) },
 		::Array        => lambda { |e|
+			e = e.map(&method(:handle_tag))
 			if e.length == 2 && e.first.is_a?(::String)
 				Variable.new(name: e[0], index: e[1])
 			else
@@ -238,11 +246,7 @@ module Dhall
 					(raise "Unknown expression: #{e.inspect}")
 			end
 		},
-		::CBOR::Tagged => lambda { |e|
-			return Dhall.decode(e.value) if e.tag == 55799
-
-			raise "Unknown tag: #{e.inspect}"
-		}
+		::CBOR::Tagged => ->(e) { Dhall.decode(handle_tag(e)) }
 	}.freeze
 
 	BINARY_TAGS = [

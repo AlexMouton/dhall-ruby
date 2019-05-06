@@ -363,7 +363,14 @@ module Dhall
 
 	class TextLiteral
 		def normalize
-			TextLiteral.for(*super.flatten.chunks)
+			lit = TextLiteral.for(*super.flatten.chunks)
+
+			if lit.is_a?(TextLiteral) && lit.chunks.length == 3 &&
+			   lit.start_empty? && lit.end_empty?
+				lit.chunks[1]
+			else
+				lit
+			end
 		end
 
 		def flatten

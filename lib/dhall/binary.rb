@@ -192,7 +192,6 @@ module Dhall
 	class Import
 		def self.decode(integrity_check, import_type, path_type, *parts)
 			parts[0] = Dhall.decode(parts[0]) if path_type < 2 && !parts[0].nil?
-			parts[0] = EnvironmentVariable.decode(parts[0]) if path_type == 6
 
 			new(
 				IntegrityCheck.new(*integrity_check),

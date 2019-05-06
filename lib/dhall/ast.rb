@@ -1085,12 +1085,12 @@ module Dhall
 			Builtins[:Text]
 		end
 
+		def empty?
+			value.empty?
+		end
+
 		def <<(other)
-			if other.is_a?(Text)
-				with(value: value + other.value)
-			else
-				super
-			end
+			with(value: value + other.value)
 		end
 
 		def to_s
@@ -1121,6 +1121,14 @@ module Dhall
 				end
 
 			fixed.length == 1 ? fixed.first : new(chunks: fixed)
+		end
+
+		def start_empty?
+			chunks.first.empty?
+		end
+
+		def end_empty?
+			chunks.last.empty?
 		end
 
 		def as_json
@@ -1370,24 +1378,6 @@ module Dhall
 		end
 
 		class EnvironmentVariable
-			ESCAPES = {
-				"\"" => "\"",
-				"\\" => "\\",
-				"a"  => "\a",
-				"b"  => "\b",
-				"f"  => "\f",
-				"n"  => "\n",
-				"r"  => "\r",
-				"t"  => "\t",
-				"v"  => "\v"
-			}.freeze
-
-			def self.decode(var)
-				var.gsub(/\\[\"\\abfnrtv]/) do |escape|
-					ESCAPES.fetch(escape[1])
-				end
-			end
-
 			attr_reader :var
 
 			def initialize(var)
@@ -1427,7 +1417,10 @@ module Dhall
 			end
 
 			def to_s
-				"env:#{as_json}"
+				escapes = Parser::PosixEnvironmentVariableCharacter::ESCAPES
+				"env:#{@var.gsub(/[\"\\\a\b\f\n\r\t\v]/) do |c|
+					"\\" + escapes.find { |(_, v)| v == c }.first
+				end}"
 			end
 
 			def hash
@@ -1440,9 +1433,7 @@ module Dhall
 			alias eql? ==
 
 			def as_json
-				@var.gsub(/[\"\\\a\b\f\n\r\t\v]/) do |c|
-					"\\" + ESCAPES.find { |(_, v)| v == c }.first
-				end
+				@var
 			end
 		end
 

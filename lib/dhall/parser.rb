@@ -559,9 +559,9 @@ module Dhall
 			def value
 				Dhall::Import::EnvironmentVariable.new(
 					if captures.key?(:bash_environment_variable)
-						capture(:bash_environment_variable).string
+						capture(:bash_environment_variable).value
 					else
-						capture(:posix_environment_variable).value.encode("utf-8")
+						capture(:posix_environment_variable).value
 					end
 				)
 			end
@@ -569,12 +569,22 @@ module Dhall
 
 		module PosixEnvironmentVariable
 			def value
-				matches.map(&:value).join
+				matches.map(&:value).join.encode(Encoding::UTF_8)
 			end
 		end
 
 		module PosixEnvironmentVariableCharacter
-			ESCAPES = Dhall::Import::EnvironmentVariable::ESCAPES
+			ESCAPES = {
+				"\"" => "\"",
+				"\\" => "\\",
+				"a"  => "\a",
+				"b"  => "\b",
+				"f"  => "\f",
+				"n"  => "\n",
+				"r"  => "\r",
+				"t"  => "\t",
+				"v"  => "\v"
+			}.freeze
 
 			def value
 				if first&.string == "\\"

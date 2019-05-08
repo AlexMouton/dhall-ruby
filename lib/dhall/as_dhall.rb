@@ -220,5 +220,11 @@ module Dhall
 				)
 			end
 		end
+
+		refine ::Proc do
+			def as_dhall
+				FunctionProxy.new(self)
+			end
+		end
 	end
 end

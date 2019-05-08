@@ -120,9 +120,18 @@ module Dhall
 		end
 	end
 
-	class Forall; end
+	class FunctionProxy
+		def shift(*)
+			self
+		end
 
-	class Bool
+		def substitute(*)
+			raise "Cannot substitute #{self}"
+		end
+
+		def normalize
+			self
+		end
 	end
 
 	class Variable

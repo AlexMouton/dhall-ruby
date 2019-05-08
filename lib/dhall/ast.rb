@@ -188,6 +188,28 @@ module Dhall
 		end
 	end
 
+	class FunctionProxy < Function
+		def initialize(callable, curry: true)
+			@callable = if !curry
+				callable
+			elsif callable.respond_to?(:curry)
+				callable.curry
+			elsif callable.respond_to?(:to_proc)
+				callable.to_proc.curry
+			else
+				callable.method(:call).to_proc.curry
+			end
+		end
+
+		def call(*args, &block)
+			@callable.call(*args.map { |arg| arg&.as_dhall }, &block).as_dhall
+		end
+
+		def as_json
+			raise "Cannot serialize #{self}"
+		end
+	end
+
 	class Bool < Expression
 		include(ValueSemantics.for_attributes do
 			value Bool()

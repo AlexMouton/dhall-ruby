@@ -157,7 +157,8 @@ module Dhall
 			end
 		end
 
-		def call(*args)
+		def call(*args, &block)
+			args += [block] if block
 			args.map! { |arg| arg&.as_dhall }
 			return super if args.length > 1
 
@@ -168,6 +169,29 @@ module Dhall
 		end
 
 		alias [] call
+		alias === call
+
+		def <<(other)
+			FunctionProxy.new(
+				->(*args, &block) { call(other.call(*args, &block)) },
+				curry: false
+			)
+		end
+
+		def >>(other)
+			FunctionProxy.new(
+				->(*args, &block) { other.call(call(*args, &block)) },
+				curry: false
+			)
+		end
+
+		def binding
+			to_proc.binding
+		end
+
+		def curry
+			self
+		end
 
 		def as_json
 			if var == "_"

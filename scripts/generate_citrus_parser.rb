@@ -122,6 +122,11 @@ class RuleFormatter
 			       "!builtin label"
 		end
 
+		if name == :"block-comment-continue"
+			return "\"-}\" | block_comment_char+ block_comment_continue | " \
+			       "(block_comment block_comment_continue)"
+		end
+
 		case rule
 		when ABNF::Term
 			Terminal.new(@abnf.regexp(name))
@@ -167,7 +172,9 @@ formatter = RuleFormatter.new(abnf)
 abnf.each do |name, rule|
 	next if name.to_s.start_with?("____")
 	puts "rule #{name.to_s.tr("-", "_")}"
-	print "\t(#{formatter.format_rule(name, rule)})"
+	print "\t"
+	print "!(\"{-\" | \"-}\") " if name == :"block-comment-char"
+	print "(#{formatter.format_rule(name, rule)})"
 	extension = name.to_s.split(/-/).map(&:capitalize).join
 	if Dhall::Parser.const_defined?(extension, false)
 		puts " <Dhall::Parser::#{extension}>"

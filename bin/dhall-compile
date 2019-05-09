@@ -1,0 +1,77 @@
+#!/usr/bin/ruby
+# frozen_string_literal: true
+
+require "dhall"
+require "optparse"
+
+@extension = ".dhallb"
+
+def compile(source)
+	Dhall.load(
+		source,
+		timeout:  Float::INFINITY,
+		resolver: Dhall::Resolvers::Default.new(
+			max_depth: Float::INFINITY
+		)
+	).then(&:to_binary)
+end
+
+def compile_file(file_path, relative_to: Pathname.new("."))
+	out = file_path.sub_ext(@extension)
+	if @output_directory
+		out = @output_directory + out.relative_path_from(relative_to)
+		out.dirname.mkpath
+	end
+	warn "#{file_path} => #{out}"
+	compile(file_path.expand_path).then(&out.method(:write))
+end
+
+opt_parser = OptionParser.new do |opts|
+	opts.banner = "Usage: dhall-compile [options] [-] [files_and_dirs]"
+
+	opts.on(
+		"-oDIRECTORY",
+		"--output-directory DIRECTORY",
+		"Write output to this directory"
+	) do |dir|
+		@output_directory = Pathname.new(dir)
+	end
+
+	opts.on(
+		"-e [EXTENSION]",
+		"--extension [EXTENSION]",
+		"Use this extension for files (default .dhallb)"
+	) do |ext|
+		@extension = ext ? ".#{ext}" : ""
+	end
+
+	opts.on("-h", "--help", "Show this usage information") do
+		warn opts
+		exit
+	end
+end
+
+opt_parser.parse!
+
+if ARGV.empty?
+	warn opt_parser
+	exit 0
+end
+
+ARGV.map(&Pathname.method(:new)).each do |path|
+	if !path.exist? && path.to_s == "-"
+		warn "Compiling STDIN to STDOUT"
+		compile(STDIN.read).then(&STDOUT.method(:write)).sync
+	elsif path.file?
+		compile_file(path, relative_to: path.dirname).sync
+	elsif path.directory?
+		warn "Recursively compiling #{path}"
+		path.find.flat_map do |child|
+			next if !child.file? || child.extname == ".dhallb"
+			compile_file(child, relative_to: path).sync
+		end
+	else
+		warn "#{path} may not exist"
+		exit 1
+	end
+end

@@ -1208,6 +1208,15 @@ module Dhall
 		class Builtin
 			TypeChecker.register self, Dhall::Builtin
 
+			def self.for(builtin)
+				unfilled = builtin.unfill
+				if unfilled != builtin
+					TypeChecker.for(unfilled)
+				else
+					new(builtin)
+				end
+			end
+
 			def initialize(builtin)
 				@expr = builtin
 				@name = builtin.as_json

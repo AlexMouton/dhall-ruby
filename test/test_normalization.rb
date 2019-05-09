@@ -7,13 +7,13 @@ require "dhall"
 
 class TestNormalization < Minitest::Test
 	DIRPATH = Pathname.new(File.dirname(__FILE__))
-	TESTS = DIRPATH + "../dhall-lang/tests/{α-,}normalization/"
+	TESTS = DIRPATH + "../dhall-lang/tests/{alpha-,}normalization/"
 
 	Pathname.glob(TESTS + "success/**/*A.dhall").each do |path|
 		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhall$/, "")
 
 		define_method("test_#{test}") do
-			Dhall::Function.disable_alpha_normalization! if test !~ /α/
+			Dhall::Function.disable_alpha_normalization! if test !~ /alpha/
 
 			parsed_a = Dhall::Parser.parse_file(path).value
 			binary_a = if test !~ /unit|simple/
@@ -29,7 +29,7 @@ class TestNormalization < Minitest::Test
 				binary_a
 			)
 
-			Dhall::Function.enable_alpha_normalization! if test !~ /α/
+			Dhall::Function.enable_alpha_normalization! if test !~ /alpha/
 		end
 	end
 

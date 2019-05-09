@@ -13,6 +13,7 @@ class TestAsJson < Minitest::Test
 
 	Pathname.glob(TESTS + "**/*.dhallb").each do |path|
 		test = path.relative_path_from(TESTS).to_s.sub(/.dhallb$/, "")
+		next if test =~ /binary-decode/
 		define_method("test_#{test}") do
 			skip "double as_json" if test =~ /doubleB/
 			skip "deprecated syntax" if test =~ /collectionImportTypeB|annotationsB/

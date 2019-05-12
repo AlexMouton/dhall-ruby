@@ -388,11 +388,11 @@ module Dhall
 				end
 
 				def element_type
-					@alist.first.value&.type || @alist.element_type
+					(@alist.first.value&.type || @alist.element_type).normalize
 				end
 
 				def element_types
-					@alist.to_a.map(&:type)
+					@alist.to_a.map(&:type).map(&:normalize)
 				end
 			end
 

@@ -102,6 +102,10 @@ module Dhall
 			end
 		end
 
+		def to_s
+			inspect
+		end
+
 		def as_dhall
 			self
 		end

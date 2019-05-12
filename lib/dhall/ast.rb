@@ -886,7 +886,7 @@ module Dhall
 
 		def self.from(alts, tag, value)
 			if value.nil?
-				Enum.new(tag: tag, alternatives: alts)
+				Enum.new(tag: tag, alternatives: alts.without(tag))
 			else
 				new(
 					tag:          tag,

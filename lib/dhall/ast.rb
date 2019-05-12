@@ -1599,6 +1599,19 @@ module Dhall
 			body Expression
 		end)
 
+		def lets
+			[let]
+		end
+
+		def flatten
+			flattened = body.is_a?(LetIn) ? body.flatten : body
+			if flattened.is_a?(LetIn) || flattened.is_a?(LetBlock)
+				LetBlock.for(lets: [let] + flattened.lets, body: flattened.body)
+			else
+				self
+			end
+		end
+
 		def desugar
 			Application.new(
 				function: Function.new(
@@ -1634,6 +1647,10 @@ module Dhall
 			else
 				new(lets: lets, body: body)
 			end
+		end
+
+		def flatten
+			unflatten.flatten
 		end
 
 		def unflatten

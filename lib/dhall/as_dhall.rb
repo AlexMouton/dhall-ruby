@@ -15,24 +15,73 @@ module Dhall
 			::TrueClass  => "Bool"
 		}.freeze
 
-		def self.tag_for(o, type)
+		def self.tag_for(o)
 			return "Natural" if o.is_a?(::Integer) && !o.negative?
 
 			TAGS.fetch(o.class) do
-				"#{o.class.name}_#{type.digest.hexdigest}"
+				o.class.name
 			end
 		end
 
-		def self.union_of(values_and_types)
-			values_and_types.reduce([UnionType.new, []]) do |(ut, tags), (v, t)|
-				tag = tag_for(v, t)
-				if t.is_a?(UnionType) && t.alternatives.length == 1
-					tag, t = t.alternatives.to_a.first
+		class AnnotatedExpressionList
+			attr_reader :type
+			attr_reader :exprs
+
+			def self.from(type_annotation)
+				if type_annotation.nil?
+					new(nil, [nil])
+				else
+					new(type_annotation.type, [type_annotation.value])
 				end
-				[
-					ut.merge(UnionType.new(alternatives: { tag => t })),
-					tags + [tag]
-				]
+			end
+
+			def initialize(type, exprs)
+				@type = type
+				@exprs = exprs
+			end
+
+			def +(other)
+				raise "#{type} != #{other.type}" if type != other.type
+				self.class.new(type, exprs + other.exprs)
+			end
+		end
+
+		class UnionInferer
+			def initialize(tagged={})
+				@tagged = tagged
+			end
+
+			def union_type
+				UnionType.new(alternatives: Hash[@tagged.map { |k, v| [k, v.type] }])
+			end
+
+			def union_for(expr)
+				if expr.is_a?(Enum)
+					tag = expr.tag
+					expr = nil
+				else
+					tag = @tagged.keys.find { |k| @tagged[k].exprs.include?(expr) }
+				end
+				expr = expr.extract if expr.is_a?(Union)
+				Union.from(union_type, tag, expr)
+			end
+
+			def with(tag, type_annotation)
+				anno = AnnotatedExpressionList.from(type_annotation)
+				if @tagged.key?(tag) && @tagged[tag].type != anno.type
+					disambiguate_against(tag, anno)
+				else
+					self.class.new(@tagged.merge(tag => anno) { |_, x, y| x + y })
+				end
+			end
+
+			def disambiguate_against(tag, anno)
+				self.class.new(
+					@tagged.reject { |k, _| k == tag }.merge(
+						"#{tag}_#{@tagged[tag].type.digest.hexdigest}" => @tagged[tag],
+						"#{tag}_#{anno.type.digest.hexdigest}"         => anno
+					)
+				)
 			end
 		end
 
@@ -144,21 +193,28 @@ module Dhall
 
 			class Union
 				def initialize(values, exprs, types)
-					@values = values
+					@tags, @types = values.zip(types).map { |(value, type)|
+						if type.is_a?(UnionType) && type.alternatives.length == 1
+							type.alternatives.to_a.first
+						else
+							[AsDhall.tag_for(value), type]
+						end
+					}.transpose
 					@exprs = exprs
-					@types = types
+					@inferer = UnionInferer.new
 				end
 
 				def list
-					ut, tags = AsDhall.union_of(@values.zip(@types))
-
-					List.new(elements: @exprs.zip(tags).map do |(expr, tag)|
-						if expr.is_a?(Dhall::Union) && expr.alternatives.empty?
-							expr = expr.is_a?(Dhall::Enum) ? nil : expr.extract
+					final_inferer =
+						@tags
+						.zip(@exprs, @types)
+						.reduce(@inferer) do |inferer, (tag, expr, type)|
+							inferer.with(
+								tag,
+								type.nil? ? nil : TypeAnnotation.new(value: expr, type: type)
+							)
 						end
-
-						Dhall::Union.from(ut, tag, expr)
-					end)
+					List.new(elements: @exprs.map(&final_inferer.method(:union_for)))
 				end
 			end
 		end

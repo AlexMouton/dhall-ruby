@@ -112,29 +112,57 @@ class TestAsDhall < Minitest::Test
 		)
 	end
 
+	class SomeTestClass
+		def initialize(a: 1, b: "hai")
+			@a = a
+			@b = b
+		end
+	end
+
 	def test_array_mixed
-		array_key = "Array_f256441295d38d19e84f2de0596f5ae2377" \
-		            "c923c4162351d88f7648d741cdd0c"
-		hash_key = "Hash_76cf2d18fa656820d79d13cad11bf3e613fdb0" \
-		           "6ff80f968ba1755d27cdf5eab3"
+		cla_key_a = "TestAsDhall::SomeTestClass_5af4256bc953a" \
+		            "30de368b9707b0d79bb119acc3098ba9589f234125eed296a19"
+		cla_key_b = "TestAsDhall::SomeTestClass_eca4d00787f4b" \
+		            "c9f52ef84ce193c62e28a31a9de5704319d738b1b9ca4a6abd7"
 		union_type = Dhall::UnionType.new(
 			alternatives: {
 				"Natural" => Dhall::Builtins[:Natural],
 				"Text"    => Dhall::Builtins[:Text],
 				"None"    => nil,
 				"boop"    => nil,
-				"Object"  => Dhall::EmptyRecordType.new,
 				"Bool"    => Dhall::Builtins[:Bool],
-				hash_key  => Dhall::RecordType.new(
+				"Hash"    => Dhall::RecordType.new(
 					record: {
 						"a" => Dhall::Builtins[:Natural]
 					}
 				),
-				array_key => Dhall::Application.new(
+				"Array"   => Dhall::Application.new(
 					function: Dhall::Builtins[:List],
 					argument: Dhall::Builtins[:Natural]
+				),
+				cla_key_a => Dhall::RecordType.new(
+					record: {
+						"a" => Dhall::Builtins[:Natural],
+						"b" => Dhall::Builtins[:Text]
+					}
+				),
+				cla_key_b => Dhall::RecordType.new(
+					record: {
+						"a" => Dhall::Builtins[:Text],
+						"b" => Dhall::Builtins[:Natural]
+					}
 				)
 			}
+		)
+
+		expr = [
+			1, "hai", nil, :boop, true, false, { a: 1 }, [1],
+			SomeTestClass.new, SomeTestClass.new(a: "hai", b: 1)
+		].as_dhall
+
+		assert_equal(
+			Dhall::Builtins[:List].call(union_type).normalize,
+			Dhall::TypeChecker.type_of(expr).normalize
 		)
 
 		assert_equal(
@@ -143,17 +171,28 @@ class TestAsDhall < Minitest::Test
 				Dhall::Union.from(union_type, "Text", Dhall::Text.new(value: "hai")),
 				Dhall::Union.from(union_type, "None", nil),
 				Dhall::Union.from(union_type, "boop", nil),
-				Dhall::Union.from(union_type, "Object", Dhall::EmptyRecord.new),
 				Dhall::Union.from(union_type, "Bool", Dhall::Bool.new(value: true)),
 				Dhall::Union.from(union_type, "Bool", Dhall::Bool.new(value: false)),
-				Dhall::Union.from(union_type, hash_key, Dhall::Record.new(
+				Dhall::Union.from(union_type, "Hash", Dhall::Record.new(
 					record: { "a" => Dhall::Natural.new(value: 1) }
 				)),
-				Dhall::Union.from(union_type, array_key, Dhall::List.new(
+				Dhall::Union.from(union_type, "Array", Dhall::List.new(
 					elements: [Dhall::Natural.new(value: 1)]
+				)),
+				Dhall::Union.from(union_type, cla_key_a, Dhall::Record.new(
+					record: {
+						"a" => Dhall::Natural.new(value: 1),
+						"b" => Dhall::Text.new(value: "hai")
+					}
+				)),
+				Dhall::Union.from(union_type, cla_key_b, Dhall::Record.new(
+					record: {
+						"a" => Dhall::Text.new(value: "hai"),
+						"b" => Dhall::Natural.new(value: 1)
+					}
 				))
 			]),
-			[1, "hai", nil, :boop, Object.new, true, false, { a: 1 }, [1]].as_dhall
+			expr
 		)
 	end
 
@@ -211,13 +250,6 @@ class TestAsDhall < Minitest::Test
 			),
 			OpenStruct.new({}).as_dhall
 		)
-	end
-
-	class SomeTestClass
-		def initialize
-			@a = 1
-			@b = "hai"
-		end
 	end
 
 	def test_object

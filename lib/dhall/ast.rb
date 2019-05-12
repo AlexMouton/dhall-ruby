@@ -825,9 +825,9 @@ module Dhall
 			alternatives.fetch(k)
 		end
 
-		def without(key)
-			key = key.to_s
-			with(alternatives: alternatives.reject { |k, _| k == key })
+		def without(*keys)
+			keys.map!(&:to_s)
+			with(alternatives: alternatives.reject { |k, _| keys.include?(k) })
 		end
 
 		def record
@@ -842,8 +842,8 @@ module Dhall
 			self == other
 		end
 
-		def merge(other)
-			with(alternatives: alternatives.merge(other.alternatives))
+		def merge(other, &block)
+			with(alternatives: alternatives.merge(other.alternatives, &block))
 		end
 
 		def fetch(k, default=nil)

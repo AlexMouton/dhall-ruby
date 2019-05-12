@@ -12,7 +12,7 @@ For the purposes of considering what is a "breaking change" only the API as docu
 
 Add this line to your application's Gemfile:
 
-    gem 'dhall'
+    gem "dhall"
 
 And then execute:
 

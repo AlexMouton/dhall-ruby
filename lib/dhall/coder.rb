@@ -129,8 +129,10 @@ module Dhall
 
 			refine Union do
 				def to_ruby
-					if tag.match(/\A\p{Upper}/) && Object.const_defined?(tag)
-						yield extract, Object.const_get(tag)
+					rtag = tag.sub(/_[0-9a-f]{64}\Z/, "")
+					if tag.match(/\A\p{Upper}/) &&
+					   Object.const_defined?(rtag) && !Dhall.const_defined?(rtag, false)
+						yield extract, Object.const_get(rtag)
 					else
 						yield extract
 					end

@@ -306,4 +306,28 @@ class TestCoder < Minitest::Test
 			)
 		)
 	end
+
+	class SomeTestClass
+		attr_reader :a, :b
+
+		def initialize(a: 1, b: "hai")
+			@a = a
+			@b = b
+		end
+
+		def ==(other)
+			a == other.a && b == other.b
+		end
+	end
+
+	def test_mixed_array_roundtrip
+		coder = Dhall::Coder.new(safe: Object) # unsafe coder
+
+		array = [
+			1, "hai", nil, :boop, true, false, { "a" => 1 }, [1],
+			SomeTestClass.new, SomeTestClass.new(a: "hai", b: 1)
+		]
+
+		assert_equal(array, coder.load(coder.dump(array)))
+	end
 end

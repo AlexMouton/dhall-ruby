@@ -6,10 +6,12 @@ require "psych"
 module Dhall
 	module AsDhall
 		TAGS = {
-			::Integer    => "Integer",
+			::Array      => "List",
 			::FalseClass => "Bool",
-			::Integer    => "Integer",
 			::Float      => "Double",
+			::Hash       => "Record",
+			::Integer    => "Integer",
+			::Integer    => "Integer",
 			::NilClass   => "None",
 			::String     => "Text",
 			::TrueClass  => "Bool"

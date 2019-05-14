@@ -4,8 +4,7 @@ require "base64"
 require "minitest/autorun"
 require "pathname"
 
-require "dhall/ast"
-require "dhall/binary"
+require "dhall"
 
 class TestBinary < Minitest::Test
 	DIRPATH = Pathname.new(File.dirname(__FILE__))
@@ -21,10 +20,14 @@ class TestBinary < Minitest::Test
 		end
 	end
 
-	def test_self_describing_cbor
-		assert_equal(
-			Dhall::Variable["x"],
-			Dhall.from_binary(Base64.decode64("2dn3gmF4AA"))
-		)
+	DECODE_TESTS = DIRPATH + "../dhall-lang/tests/binary-decode/success/"
+	Pathname.glob(DECODE_TESTS + "**/*A.dhallb").each do |path|
+		test = path.relative_path_from(DECODE_TESTS).to_s.sub(/A.dhallb$/, "")
+		define_method("test_#{test}") do
+			assert_equal(
+				Dhall::Parser.parse_file(DECODE_TESTS + "#{test}B.dhall").value,
+				Dhall.from_binary(path.binread)
+			)
+		end
 	end
 end

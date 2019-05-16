@@ -1203,7 +1203,11 @@ module Dhall
 			end
 
 			def to_s
-				"#{@protocol}:#{@data}"
+				"#{@protocol}:#{hexdigest}"
+			end
+
+			def hexdigest
+				@data&.unpack("H*")&.first&.encode(Encoding::UTF_8)
 			end
 
 			def check(expr)
@@ -1216,7 +1220,7 @@ module Dhall
 			end
 
 			def as_json
-				@protocol == :nocheck ? nil : [@protocol, @data]
+				@protocol == :nocheck ? nil : [@protocol, hexdigest]
 			end
 		end
 

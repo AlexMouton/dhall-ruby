@@ -525,7 +525,7 @@ module Dhall
 		module Hash
 			def value
 				protocol, data = string.split(/:/, 2)
-				Dhall::Import::IntegrityCheck.new(protocol, data)
+				Dhall::Import::IntegrityCheck.new(protocol, [data].pack("H*"))
 			end
 		end
 

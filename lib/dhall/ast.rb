@@ -128,7 +128,7 @@ module Dhall
 		def flatten
 			f, args = if function.is_a?(Application)
 				function.flatten
-			elsif function.is_a?(Builtin) &&
+			elsif function.is_a?(BuiltinFunction) &&
 			      (unfilled = function.unfill).is_a?(Application)
 				unfilled.flatten
 			else

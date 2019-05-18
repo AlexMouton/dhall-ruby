@@ -6,93 +6,74 @@ module Dhall
 	class Builtin < Expression
 		include(ValueSemantics.for_attributes {})
 
-		def call(*args)
-			# Do not auto-normalize builtins to avoid recursion loop
-			args.reduce(self) do |f, arg|
+		def as_json
+			self.class.name&.split(/::/)&.last&.tr("_", "/").to_s
+		end
+	end
+
+	class BuiltinFunction < Builtin
+		include(ValueSemantics.for_attributes do
+			partial_application ArrayOf(Expression), default: []
+		end)
+
+		def unfill(*args)
+			(args.empty? ? partial_application : args).reduce(self.class.new) do |f, arg|
 				Application.new(function: f, argument: arg)
 			end
 		end
 
-		def unfill
-			attributes.reduce(self.class.new) do |f, attr|
-				if send(attr.name).nil?
-					f
-				else
-					Application.new(function: f, argument: send(attr.name))
-				end
+		def call(*new_args)
+			args = partial_application + new_args
+			if args.length == method(:uncurried_call).arity
+				uncurried_call(*args)
+			else
+				with(partial_application: args)
 			end
 		end
 
 		def as_json
-			if (unfilled = unfill).class != self.class
+			if (unfilled = unfill) != self
 				unfilled.as_json
 			else
-				self.class.name&.split(/::/)&.last&.tr("_", "/").to_s
+				super
 			end
-		end
-
-		protected
-
-		def attributes
-			self.class.value_semantics.attributes
-		end
-
-		def fill_next_if_valid(value)
-			with(attributes.each_with_object({}) do |attr, h|
-				if !send(attr.name).nil?
-					h[attr.name] = send(attr.name)
-				elsif attr.validate?(value)
-					h[attr.name] = value
-					value = nil
-				else
-					return nil
-				end
-			end)
-		end
-
-		def full?
-			attributes.all? { |attr| !send(attr.name).nil? }
-		end
-
-		def fill_or_call(arg, &block)
-			full? ? block[arg] : fill_next_if_valid(arg)
 		end
 	end
 
 	module Builtins
 		# rubocop:disable Style/ClassAndModuleCamelCase
 
-		class Double_show < Builtin
-			def call(arg)
-				if arg.is_a?(Dhall::Double)
-					Dhall::Text.new(value: arg.to_s)
-				else
-					super
-				end
+		class Double_show < BuiltinFunction
+			protected
+
+			def uncurried_call(arg)
+				return unfill(arg) unless arg.is_a?(Dhall::Double)
+
+				Dhall::Text.new(value: arg.to_s)
 			end
 		end
 
-		class Integer_show < Builtin
-			def call(arg)
-				if arg.is_a?(Dhall::Integer)
-					Dhall::Text.new(value: arg.to_s)
-				else
-					super
-				end
+		class Integer_show < BuiltinFunction
+			protected
+
+			def uncurried_call(arg)
+				return unfill(arg) unless arg.is_a?(Dhall::Integer)
+
+				Dhall::Text.new(value: arg.to_s)
 			end
 		end
 
-		class Integer_toDouble < Builtin
-			def call(arg)
-				if arg.is_a?(Dhall::Integer)
-					Dhall::Double.new(value: arg.value.to_f)
-				else
-					super
-				end
+		class Integer_toDouble < BuiltinFunction
+			protected
+
+			def uncurried_call(arg)
+				return unfill(arg) unless arg.is_a?(Dhall::Integer)
+
+				Dhall::Double.new(value: arg.value.to_f)
 			end
 		end
 
-		class Natural_build < Builtin
+		class Natural_build < BuiltinFunction
 			def fusion(arg, *bogus)
 				if bogus.empty? &&
 				   arg.is_a?(Application) &&
@@ -103,7 +84,9 @@ module Dhall
 				end
 			end
 
-			def call(arg)
+			protected
+
+			def uncurried_call(arg)
 				arg.call(
 					Natural.new,
 					Function.of_arguments(
@@ -115,79 +98,71 @@ module Dhall
 			end
 		end
 
-		class Natural_even < Builtin
-			def call(nat)
-				if nat.is_a?(Dhall::Natural)
-					Dhall::Bool.new(value: nat.even?)
+		class Natural_even < BuiltinFunction
+			protected
+
+			def uncurried_call(nat)
+				return unfill(nat) unless nat.is_a?(Dhall::Natural)
+
+				Dhall::Bool.new(value: nat.even?)
+			end
+		end
+
+		class Natural_fold < BuiltinFunction
+			protected
+
+			def uncurried_call(nat, type, f, z)
+				return unfill(nat, type, f, z) unless nat.is_a?(Dhall::Natural)
+
+				if nat.zero?
+					z.normalize
 				else
-					super
+					f.call(Natural_fold.new.call(nat.pred, type, f, z))
 				end
 			end
 		end
 
-		class Natural_fold < Builtin
-			include(ValueSemantics.for_attributes do
-				nat  Either(nil, Dhall::Natural), default: nil
-				type Either(nil, Expression),     default: nil
-				f    Either(nil, Expression),     default: nil
-			end)
+		class Natural_isZero < BuiltinFunction
+			protected
 
-			def call(arg)
-				fill_or_call(arg) do
-					if @nat.zero?
-						arg.normalize
-					else
-						@f.call(with(nat: nat.pred).call(arg))
-					end
-				end || super
+			def uncurried_call(nat)
+				return unfill(nat) unless nat.is_a?(Dhall::Natural)
+
+				Dhall::Bool.new(value: nat.zero?)
 			end
 		end
 
-		class Natural_isZero < Builtin
-			def call(nat)
-				if nat.is_a?(Dhall::Natural)
-					Dhall::Bool.new(value: nat.zero?)
-				else
-					super
-				end
+		class Natural_odd < BuiltinFunction
+			protected
+
+			def uncurried_call(nat)
+				return unfill(nat) unless nat.is_a?(Dhall::Natural)
+
+				Dhall::Bool.new(value: nat.odd?)
 			end
 		end
 
-		class Natural_odd < Builtin
-			def call(nat)
-				if nat.is_a?(Dhall::Natural)
-					Dhall::Bool.new(value: nat.odd?)
-				else
-					super
-				end
+		class Natural_show < BuiltinFunction
+			protected
+
+			def uncurried_call(nat)
+				return unfill(nat) unless nat.is_a?(Dhall::Natural)
+
+				Dhall::Text.new(value: nat.to_s)
 			end
 		end
 
-		class Natural_show < Builtin
-			def call(nat)
-				if nat.is_a?(Dhall::Natural)
-					Dhall::Text.new(value: nat.to_s)
-				else
-					super
-				end
+		class Natural_toInteger < BuiltinFunction
+			protected
+
+			def uncurried_call(nat)
+				return unfill(nat) unless nat.is_a?(Dhall::Natural)
+
+				Dhall::Integer.new(value: nat.value)
 			end
 		end
 
-		class Natural_toInteger < Builtin
-			def call(nat)
-				if nat.is_a?(Dhall::Natural)
-					Dhall::Integer.new(value: nat.value)
-				else
-					super
-				end
-			end
-		end
-
-		class List_build < Builtin
-			include(ValueSemantics.for_attributes do
-				type Either(nil, Expression), default: nil
-			end)
-
+		class List_build < BuiltinFunction
 			def fusion(*args)
 				_, arg, = args
 				if arg.is_a?(Application) &&
@@ -199,19 +174,17 @@ module Dhall
 				end
 			end
 
-			def call(arg)
-				fill_or_call(arg) do
-					arg.call(
-						List.new.call(type),
-						cons,
-						EmptyList.new(element_type: type)
-					)
-				end
-			end
-
 			protected
 
-			def cons
+			def uncurried_call(type, arg)
+				arg.call(
+					List.new.call(type),
+					cons(type),
+					EmptyList.new(element_type: type)
+				)
+			end
+
+			def cons(type)
 				Function.of_arguments(
 					type,
 					List.new.call(type.shift(1, "_", 0)),
@@ -220,56 +193,33 @@ module Dhall
 			end
 		end
 
-		class List_fold < Builtin
-			include(ValueSemantics.for_attributes do
-				ltype Either(nil, Expression), default: nil
-				list  Either(nil, List),       default: nil
-				ztype Either(nil, Expression), default: nil
-				f     Either(nil, Expression), default: nil
-			end)
-
-			def call(arg)
-				fill_or_call(arg) do
-					list.reduce(arg, &f).normalize
-				end || super
-			end
-		end
-
-		class List_head < Builtin
-			include(ValueSemantics.for_attributes do
-				type Either(nil, Expression), default: nil
-			end)
-
-			def call(arg)
-				fill_or_call(arg) do
-					if arg.is_a?(Dhall::List)
-						arg.first
-					else
-						super
-					end
-				end
-			end
-		end
-
-		class List_indexed < Builtin
-			include(ValueSemantics.for_attributes do
-				type Either(nil, Expression), default: nil
-			end)
-
-			def call(arg)
-				fill_or_call(arg) do
-					if arg.is_a?(Dhall::List)
-						_call(arg)
-					else
-						super
-					end
-				end
-			end
-
+		class List_fold < BuiltinFunction
 			protected
 
-			def _call(arg)
-				arg.map(type: indexed_type(type)) { |x, idx|
+			def uncurried_call(ltype, list, ztype, f, z)
+				return unfill(ltype, list, ztype, f, z) unless list.is_a?(Dhall::List)
+
+				list.reduce(z, &f).normalize
+			end
+		end
+
+		class List_head < BuiltinFunction
+			protected
+
+			def uncurried_call(type, list)
+				return unfill(type, list) unless list.is_a?(Dhall::List)
+
+				list.first
+			end
+		end
+
+		class List_indexed < BuiltinFunction
+			protected
+
+			def uncurried_call(type, list)
+				return unfill(type, list) unless list.is_a?(Dhall::List)
+
+				list.map(type: indexed_type(type)) { |x, idx|
 					Record.new(
 						record: {
 							"index" => Dhall::Natural.new(value: idx),
@@ -289,59 +239,37 @@ module Dhall
 			end
 		end
 
-		class List_last < Builtin
-			include(ValueSemantics.for_attributes do
-				type Either(nil, Expression), default: nil
-			end)
+		class List_last < BuiltinFunction
+			protected
 
-			def call(arg)
-				fill_or_call(arg) do
-					if arg.is_a?(Dhall::List)
-						arg.last
-					else
-						super
-					end
-				end
+			def uncurried_call(type, list)
+				return unfill(type, list) unless list.is_a?(Dhall::List)
+
+				list.last
 			end
 		end
 
-		class List_length < Builtin
-			include(ValueSemantics.for_attributes do
-				type Either(nil, Expression), default: nil
-			end)
+		class List_length < BuiltinFunction
+			protected
 
-			def call(arg)
-				fill_or_call(arg) do
-					if arg.is_a?(Dhall::List)
-						Dhall::Natural.new(value: arg.length)
-					else
-						super
-					end
-				end
+			def uncurried_call(type, list)
+				return unfill(type, list) unless list.is_a?(Dhall::List)
+
+				Dhall::Natural.new(value: list.length)
 			end
 		end
 
-		class List_reverse < Builtin
-			include(ValueSemantics.for_attributes do
-				type Either(nil, Expression), default: nil
-			end)
+		class List_reverse < BuiltinFunction
+			protected
 
-			def call(arg)
-				fill_or_call(arg) do
-					if arg.is_a?(Dhall::List)
-						arg.reverse
-					else
-						super
-					end
-				end
+			def uncurried_call(type, list)
+				return unfill(type, list) unless list.is_a?(Dhall::List)
+
+				list.reverse
 			end
 		end
 
-		class Optional_build < Builtin
-			include(ValueSemantics.for_attributes do
-				type Either(nil, Expression), default: nil
-			end)
-
+		class Optional_build < BuiltinFunction
 			def fusion(*args)
 				_, arg, = args
 				if arg.is_a?(Application) &&
@@ -353,19 +281,17 @@ module Dhall
 				end
 			end
 
-			def call(arg)
-				fill_or_call(arg) do
-					arg.call(
-						Optional.new.call(type),
-						some,
-						OptionalNone.new(value_type: type)
-					)
-				end
-			end
-
 			protected
 
-			def some
+			def uncurried_call(type, f)
+				f.call(
+					Optional.new.call(type),
+					some(type),
+					OptionalNone.new(value_type: type)
+				)
+			end
+
+			def some(type)
 				Function.of_arguments(
 					type,
 					body: Dhall::Optional.new(
@@ -376,24 +302,19 @@ module Dhall
 			end
 		end
 
-		class Optional_fold < Builtin
-			include(ValueSemantics.for_attributes do
-				type     Either(nil, Expression), default: nil
-				optional Either(nil, Optional),   default: nil
-				ztype    Either(nil, Expression), default: nil
-				f        Either(nil, Expression), default: nil
-			end)
+		class Optional_fold < BuiltinFunction
+			protected
 
-			def call(*args)
-				args.reduce(self) do |fold, arg|
-					fold.fill_or_call(arg) do
-						fold.optional.reduce(arg, &fold.f)
-					end || super
+			def uncurried_call(type, optional, ztype, f, z)
+				unless optional.is_a?(Dhall::Optional)
+					return unfill(type, optional, ztype, f, z)
 				end
+
+				optional.reduce(z, &f)
 			end
 		end
 
-		class Text_show < Builtin
+		class Text_show < BuiltinFunction
 			ENCODE = (Hash.new { |_, x| "\\u%04x" % x.ord }).merge(
 				"\"" => "\\\"",
 				"\\" => "\\\\",
@@ -404,17 +325,17 @@ module Dhall
 				"\t" => "\\t"
 			)
 
-			def call(arg)
-				if arg.is_a?(Dhall::Text)
-					Dhall::Text.new(
-						value: "\"#{arg.value.gsub(
-							/["\$\\\b\f\n\r\t\u0000-\u001F]/,
-							&ENCODE
-						)}\""
-					)
-				else
-					super
-				end
+			protected
+
+			def uncurried_call(text)
+				return unfill(text) unless text.is_a?(Dhall::Text)
+
+				Dhall::Text.new(
+					value: "\"#{text.to_s.gsub(
+						/["\$\\\b\f\n\r\t\u0000-\u001F]/,
+						&ENCODE
+					)}\""
+				)
 			end
 		end
 

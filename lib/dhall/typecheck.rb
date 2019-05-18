@@ -1209,12 +1209,13 @@ module Dhall
 			TypeChecker.register self, Dhall::Builtin
 
 			def self.for(builtin)
-				unfilled = builtin.unfill
-				if unfilled != builtin
-					TypeChecker.for(unfilled)
-				else
-					new(builtin)
+				if builtin.is_a?(Dhall::BuiltinFunction)
+					if (unfilled = builtin.unfill) != builtin
+						return TypeChecker.for(unfilled)
+					end
 				end
+
+				new(builtin)
 			end
 
 			def initialize(builtin)

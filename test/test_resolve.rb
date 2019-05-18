@@ -260,7 +260,7 @@ class TestResolve < Minitest::Test
 
 		expr = Dhall::Import.new(
 			Dhall::Import::IntegrityCheck.new(
-				"sha256", Dhall::Variable["_"].digest.hexdigest
+				"sha256", Dhall::Variable["_"].digest.digest
 			),
 			Dhall::Import::Expression,
 			Dhall::Import::Http.new(nil, "example.com", "thing.dhall", nil)

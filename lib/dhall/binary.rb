@@ -2,6 +2,7 @@
 
 require "cbor"
 require "digest/sha2"
+require "multihashes"
 
 require "dhall/ast"
 require "dhall/builtins"
@@ -190,15 +191,23 @@ module Dhall
 	end
 
 	class Import
+		class IntegrityCheck
+			def self.decode(integrity_check)
+				return unless integrity_check
+
+				IntegrityCheck.new(
+					Multihashes.decode(integrity_check).select { |k, _|
+						[:code, :digest].include?(k)
+					}
+				)
+			end
+		end
+
 		def self.decode(integrity_check, import_type, path_type, *parts)
 			parts[0] = Dhall.decode(parts[0]) if path_type < 2 && !parts[0].nil?
 
-			check = if integrity_check
-				IntegrityCheck.new(integrity_check[0], [integrity_check[1]].pack("H*"))
-			end
-
 			new(
-				check,
+				IntegrityCheck.decode(integrity_check),
 				IMPORT_TYPES[import_type],
 				PATH_TYPES[path_type].new(*parts)
 			)

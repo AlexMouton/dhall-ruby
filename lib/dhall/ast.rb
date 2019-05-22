@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "multihashes"
 require "uri"
 require "value_semantics"
 
@@ -1189,25 +1190,18 @@ module Dhall
 	class Import < Expression
 		class IntegrityCheck
 			include(ValueSemantics.for_attributes do
-				protocol "sha256"
-				data     Either(::String, nil)
+				code   ::Integer
+				digest ::String
 			end)
 
 			class FailureException < StandardError; end
 
-			def initialize(protocol, data=nil)
-				super(
-					protocol: protocol,
-					data:     data
-				)
-			end
-
 			def to_s
-				"#{@protocol}:#{hexdigest}"
+				"#{Multihashes::TABLE[code].sub(/\Asha2-/, "sha")}:#{hexdigest}"
 			end
 
 			def hexdigest
-				@data.unpack("H*").first.encode(Encoding::UTF_8)
+				digest.unpack("H*").first.encode(Encoding::UTF_8)
 			end
 
 			def check(expr)

@@ -525,7 +525,12 @@ module Dhall
 		module Hash
 			def value
 				protocol, data = string.split(/:/, 2)
-				Dhall::Import::IntegrityCheck.new(protocol, [data].pack("H*"))
+				Dhall::Import::IntegrityCheck.new(
+					code:   Multihashes::TABLE.key(
+						protocol.sub(/\Asha(\d{3})/, "sha2-\\1")
+					),
+					digest: [data].pack("H*")
+				)
 			end
 		end
 

@@ -1189,13 +1189,13 @@ module Dhall
 	class Import < Expression
 		class IntegrityCheck
 			include(ValueSemantics.for_attributes do
-				protocol Either("sha256", :nocheck)
+				protocol "sha256"
 				data     Either(::String, nil)
 			end)
 
 			class FailureException < StandardError; end
 
-			def initialize(protocol=:nocheck, data=nil)
+			def initialize(protocol, data=nil)
 				super(
 					protocol: protocol,
 					data:     data
@@ -1207,12 +1207,10 @@ module Dhall
 			end
 
 			def hexdigest
-				@data&.unpack("H*")&.first&.encode(Encoding::UTF_8)
+				@data.unpack("H*").first.encode(Encoding::UTF_8)
 			end
 
 			def check(expr)
-				return expr if @protocol == :nocheck
-
 				expr = expr.normalize
 				return expr if expr.cache_key == to_s
 
@@ -1220,7 +1218,25 @@ module Dhall
 			end
 
 			def as_json
-				@protocol == :nocheck ? nil : [@protocol, hexdigest]
+				[@protocol, hexdigest]
+			end
+		end
+
+		class NoIntegrityCheck < IntegrityCheck
+			def initialize; end
+
+			def to_s
+				""
+			end
+
+			def hexdigest; end
+
+			def check(expr)
+				expr
+			end
+
+			def as_json
+				nil
 			end
 		end
 
@@ -1541,14 +1557,14 @@ module Dhall
 		].freeze
 
 		include(ValueSemantics.for_attributes do
-			integrity_check IntegrityCheck, default: IntegrityCheck.new
+			integrity_check IntegrityCheck, default: NoIntegrityCheck.new
 			import_type     Class
 			path            Either(*PATH_TYPES)
 		end)
 
 		def initialize(integrity_check, import_type, path)
 			super(
-				integrity_check: integrity_check || IntegrityCheck.new,
+				integrity_check: integrity_check || NoIntegrityCheck.new,
 				import_type:     import_type,
 				path:            path
 			)
@@ -1571,10 +1587,11 @@ module Dhall
 		end
 
 		def cache_key(relative_to)
-			if integrity_check.protocol == :nocheck
+			key = integrity_check.to_s
+			if key.empty?
 				real_path(relative_to)
 			else
-				integrity_check.to_s
+				key
 			end
 		end
 

@@ -53,7 +53,7 @@ class TestResolve < Minitest::Test
 
 	def test_import_as_text
 		expr = Dhall::Import.new(
-			Dhall::Import::IntegrityCheck.new,
+			Dhall::Import::NoIntegrityCheck.new,
 			Dhall::Import::Text,
 			Dhall::Import::RelativePath.new("text")
 		)
@@ -65,7 +65,7 @@ class TestResolve < Minitest::Test
 		expr = Dhall::Function.of_arguments(
 			Dhall::Variable["Natural"],
 			body: Dhall::Import.new(
-				Dhall::Import::IntegrityCheck.new,
+				Dhall::Import::NoIntegrityCheck.new,
 				Dhall::Import::Expression,
 				Dhall::Import::RelativePath.new("var")
 			)
@@ -78,7 +78,7 @@ class TestResolve < Minitest::Test
 		expr = Dhall::Function.of_arguments(
 			Dhall::Variable["Natural"],
 			body: Dhall::Import.new(
-				Dhall::Import::IntegrityCheck.new,
+				Dhall::Import::NoIntegrityCheck.new,
 				Dhall::Import::Expression,
 				Dhall::Import::RelativePath.new("import")
 			)
@@ -91,7 +91,7 @@ class TestResolve < Minitest::Test
 		expr = Dhall::Function.of_arguments(
 			Dhall::Variable["Natural"],
 			body: Dhall::Import.new(
-				Dhall::Import::IntegrityCheck.new,
+				Dhall::Import::NoIntegrityCheck.new,
 				Dhall::Import::Expression,
 				Dhall::Import::RelativePath.new("self")
 			)
@@ -106,7 +106,7 @@ class TestResolve < Minitest::Test
 		expr = Dhall::Function.of_arguments(
 			Dhall::Variable["Natural"],
 			body: Dhall::Import.new(
-				Dhall::Import::IntegrityCheck.new,
+				Dhall::Import::NoIntegrityCheck.new,
 				Dhall::Import::Expression,
 				Dhall::Import::RelativePath.new("a")
 			)
@@ -119,7 +119,7 @@ class TestResolve < Minitest::Test
 
 	def test_two_references_no_loop
 		expr = Dhall::Import.new(
-			Dhall::Import::IntegrityCheck.new,
+			Dhall::Import::NoIntegrityCheck.new,
 			Dhall::Import::Expression,
 			Dhall::Import::RelativePath.new("2text")
 		)
@@ -155,7 +155,7 @@ class TestResolve < Minitest::Test
 
 	def test_missing
 		expr = Dhall::Import.new(
-			Dhall::Import::IntegrityCheck.new,
+			Dhall::Import::NoIntegrityCheck.new,
 			Dhall::Import::Expression,
 			Dhall::Import::MissingImport.new
 		)
@@ -180,7 +180,7 @@ class TestResolve < Minitest::Test
 	def test_fallback_to_expr
 		expr = Dhall::Operator::ImportFallback.new(
 			lhs: Dhall::Import.new(
-				Dhall::Import::IntegrityCheck.new,
+				Dhall::Import::NoIntegrityCheck.new,
 				Dhall::Import::Expression,
 				Dhall::Import::MissingImport.new
 			),
@@ -196,12 +196,12 @@ class TestResolve < Minitest::Test
 	def test_fallback_to_import
 		expr = Dhall::Operator::ImportFallback.new(
 			lhs: Dhall::Import.new(
-				Dhall::Import::IntegrityCheck.new,
+				Dhall::Import::NoIntegrityCheck.new,
 				Dhall::Import::Expression,
 				Dhall::Import::MissingImport.new
 			),
 			rhs: Dhall::Import.new(
-				Dhall::Import::IntegrityCheck.new,
+				Dhall::Import::NoIntegrityCheck.new,
 				Dhall::Import::Expression,
 				Dhall::Import::RelativePath.new("import")
 			)
@@ -216,7 +216,7 @@ class TestResolve < Minitest::Test
 			.to_return(status: 200, body: "\x00".b)
 
 		expr = Dhall::Import.new(
-			Dhall::Import::IntegrityCheck.new,
+			Dhall::Import::NoIntegrityCheck.new,
 			Dhall::Import::Expression,
 			Dhall::Import::RelativePath.new("using")
 		)
@@ -226,7 +226,7 @@ class TestResolve < Minitest::Test
 
 	def test_env_natural
 		expr = Dhall::Import.new(
-			Dhall::Import::IntegrityCheck.new,
+			Dhall::Import::NoIntegrityCheck.new,
 			Dhall::Import::Expression,
 			Dhall::Import::EnvironmentVariable.new("NAT")
 		)
@@ -236,7 +236,7 @@ class TestResolve < Minitest::Test
 
 	def test_env_as_text
 		expr = Dhall::Import.new(
-			Dhall::Import::IntegrityCheck.new,
+			Dhall::Import::NoIntegrityCheck.new,
 			Dhall::Import::Text,
 			Dhall::Import::EnvironmentVariable.new("NAT")
 		)
@@ -246,7 +246,7 @@ class TestResolve < Minitest::Test
 
 	def test_env_relative
 		expr = Dhall::Import.new(
-			Dhall::Import::IntegrityCheck.new,
+			Dhall::Import::NoIntegrityCheck.new,
 			Dhall::Import::Expression,
 			Dhall::Import::EnvironmentVariable.new("PATH")
 		)
@@ -290,7 +290,7 @@ class TestResolve < Minitest::Test
 			.to_return(status: 200, body: "\x00".b)
 
 		expr = Dhall::Import.new(
-			Dhall::Import::IntegrityCheck.new,
+			Dhall::Import::NoIntegrityCheck.new,
 			Dhall::Import::Expression,
 			Dhall::Import::AbsolutePath.new("ipfs", "TESTCID")
 		)
@@ -306,7 +306,7 @@ class TestResolve < Minitest::Test
 			.to_return(status: 200, body: "_")
 
 		expr = Dhall::Import.new(
-			Dhall::Import::IntegrityCheck.new,
+			Dhall::Import::NoIntegrityCheck.new,
 			Dhall::Import::Expression,
 			Dhall::Import::AbsolutePath.new("ipfs", "TESTCID")
 		)

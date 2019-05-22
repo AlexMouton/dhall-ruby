@@ -1218,7 +1218,7 @@ module Dhall
 			end
 
 			def as_json
-				[@protocol, hexdigest]
+				Multihashes.encode(digest, Multihashes::TABLE[code])
 			end
 		end
 

@@ -537,7 +537,7 @@ module Dhall
 
 			class Selector
 				def self.for(annotated_record)
-					if annotated_record.type == Builtins[:Type]
+					if KINDS.include?(annotated_record.type)
 						TypeSelector.new(annotated_record.value)
 					elsif annotated_record.type.class == Dhall::RecordType
 						new(annotated_record.type)

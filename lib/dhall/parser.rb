@@ -277,8 +277,8 @@ module Dhall
 			def value
 				chunks = capture(:single_quote_continue).value
 				raw = chunks.join
-				indent = raw.scan(/^[ \t]*(?=[^ \t\r\n])/).map(&:chars)
-				            .reduce(&Util.method(:longest_common_prefix)).length
+				indent = raw.scan(/^[ \t]*(?=[^ \t\n])/).map(&:chars)
+				            .reduce(&Util.method(:longest_common_prefix))&.length.to_i
 				indent = 0 if raw.end_with?("\n")
 
 				TextLiteral.for(
@@ -292,6 +292,12 @@ module Dhall
 		module SingleQuoteContinue
 			def value
 				([first].compact + captures(:single_quote_continue)).flat_map(&:value)
+			end
+		end
+
+		module EndOfLine
+			def value
+				"\n"
 			end
 		end
 

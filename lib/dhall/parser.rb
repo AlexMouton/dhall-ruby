@@ -275,10 +275,7 @@ module Dhall
 		module SingleQuoteLiteral
 			def value
 				chunks = capture(:single_quote_continue).value
-				raw = chunks.join
-				indent = raw.scan(/^[ \t]*(?=[^ \t\n]|\Z)/).map(&:chars)
-				            .reduce(&Util.method(:longest_common_prefix))&.length.to_i
-				indent = 0 if raw.end_with?("\n")
+				indent = Util.indent_size(chunks.join)
 
 				TextLiteral.for(
 					*chunks

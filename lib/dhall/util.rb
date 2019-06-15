@@ -181,5 +181,16 @@ module Dhall
 		def self.longest_common_prefix(a, b)
 			a.zip(b).take_while { |(x, y)| x == y }.map(&:first)
 		end
+
+		def self.indent_size(str)
+			if str.end_with?("\n")
+				0
+			else
+				str
+					.scan(/^[ \t]*(?=[^ \t\n]|\Z)/)
+					.map(&:chars)
+					.reduce(&method(:longest_common_prefix))&.length.to_i
+			end
+		end
 	end
 end

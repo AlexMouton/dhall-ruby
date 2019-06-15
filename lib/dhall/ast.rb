@@ -69,7 +69,7 @@ module Dhall
 		def dhall_eq(other)
 			if self == other
 				Bool.new(value: true)
-			elsif other.is_a?(Bool)
+			elsif other == Bool.new(value: true)
 				other.dhall_eq(self)
 			else
 				Operator::Equal.new(lhs: self, rhs: other)

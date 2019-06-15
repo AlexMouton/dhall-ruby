@@ -145,8 +145,7 @@ module Dhall
 				selectors = captures(:selector).map(&:value)
 				selectors.reduce(record) do |rec, sels|
 					if sels.is_a?(Array)
-						return EmptyRecordProjection.new(record: rec) if sels.empty?
-						RecordProjection.new(record: rec, selectors: sels)
+						RecordProjection.for(rec, sels)
 					else
 						RecordSelection.new(record: rec, selector: sels)
 					end

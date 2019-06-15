@@ -141,11 +141,7 @@ module Dhall
 
 	class RecordProjection
 		def self.decode(record, *selectors)
-			if selectors.empty?
-				EmptyRecordProjection.new(record: Dhall.decode(record))
-			else
-				new(record: Dhall.decode(record), selectors: selectors)
-			end
+			self.for(Dhall.decode(record), selectors)
 		end
 	end
 

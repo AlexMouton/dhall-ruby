@@ -798,6 +798,14 @@ module Dhall
 			selectors Util::ArrayOf.new(::String, min: 1)
 		end)
 
+		def self.for(record, selectors)
+			if selectors.empty?
+				EmptyRecordProjection.new(record: record)
+			else
+				new(record: record, selectors: selectors)
+			end
+		end
+
 		def as_json
 			[10, record.as_json, *selectors]
 		end

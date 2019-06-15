@@ -461,6 +461,10 @@ module Dhall
 			self
 		end
 
+		def join(*)
+			""
+		end
+
 		def concat(other)
 			other
 		end

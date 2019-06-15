@@ -38,7 +38,7 @@ module Dhall
 				req["Origin"] = parent_origin
 				req["Access-Control-Request-Method"] = "GET"
 				req["Access-Control-Request-Headers"] =
-					source.headers.map { |h| h.fetch("header").to_s }.join(",")
+					source.headers.to_a.map { |h| h.fetch("header").to_s }.join(",")
 				r = Net::HTTP.start(
 					uri.hostname,
 					uri.port,

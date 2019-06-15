@@ -276,7 +276,7 @@ module Dhall
 			def value
 				chunks = capture(:single_quote_continue).value
 				raw = chunks.join
-				indent = raw.scan(/^[ \t]*(?=[^ \t\n])/).map(&:chars)
+				indent = raw.scan(/^[ \t]*(?=[^ \t\n]|\Z)/).map(&:chars)
 				            .reduce(&Util.method(:longest_common_prefix))&.length.to_i
 				indent = 0 if raw.end_with?("\n")
 

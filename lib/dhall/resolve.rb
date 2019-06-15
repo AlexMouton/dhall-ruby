@@ -186,7 +186,7 @@ module Dhall
 					return Dhall.from_binary(file.binread) if file.exist?
 
 					Promise.resolve(nil).then(&block).then do |result|
-						file.open("wb") { |fh| fh.write(result.to_binary) }
+						file.open("wb") { |fh| fh.write(result.to_cbor) }
 						result
 					end
 				else

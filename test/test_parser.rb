@@ -21,7 +21,7 @@ class TestParser < Minitest::Test
 			assert_kind_of(Dhall::Expression, match.value)
 			assert_equal(
 				(TESTS + "#{test}B.dhallb").binread,
-				match.value.to_binary
+				match.value.to_cbor
 			)
 		end
 	end

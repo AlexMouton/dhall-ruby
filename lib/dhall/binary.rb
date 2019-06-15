@@ -35,10 +35,13 @@ module Dhall
 				CBOR.encode(as_json)
 			end
 		end
-		alias to_binary to_cbor
+
+		def to_binary
+			CBOR.encode(::CBOR::Tagged.new(55799, self))
+		end
 
 		def digest(digest: Digest::SHA2.new(256))
-			(digest << normalize.to_binary).freeze
+			(digest << normalize.to_cbor).freeze
 		end
 
 		def cache_key

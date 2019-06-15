@@ -5,4 +5,4 @@ require "dhall"
 require "json"
 using Dhall::AsDhall
 
-STDOUT.write(CBOR.encode(JSON.parse(STDIN.read).as_dhall))
+STDOUT.write(JSON.parse(STDIN.read).as_dhall.to_binary)

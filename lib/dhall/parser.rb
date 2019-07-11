@@ -22,15 +22,10 @@ module Dhall
 		module Expression
 			def value
 				key =
-					[:let_binding, :lambda, :forall, :arrow, :if, :merge]
+					[:let_binding, :lambda, :forall, :arrow, :if, :merge, :list]
 					.find { |k| captures.key?(k) }
 
-				return public_send(key) if key
-
-				key =
-					[:empty_collection, :non_empty_optional]
-					.find { |k| captures.key?(k) }
-				key ? capture(key).value : super
+				key ? public_send(key) : super
 			end
 
 			def let_binding
@@ -77,6 +72,10 @@ module Dhall
 					input:  captures(:import_expression)[1].value,
 					type:   capture(:application_expression)&.value
 				)
+			end
+
+			def list
+				EmptyList.new(element_type: capture(:import_expression).value)
 			end
 		end
 
@@ -142,8 +141,7 @@ module Dhall
 		module SelectorExpression
 			def value
 				record = capture(:primitive_expression).value
-				selectors = captures(:selector).map(&:value)
-				selectors.reduce(record) do |rec, sels|
+				captures(:selector).map(&:value).reduce(record) do |rec, sels|
 					if sels.is_a?(Array)
 						RecordProjection.for(rec, sels)
 					elsif sels.is_a?(Dhall::Expression)
@@ -155,9 +153,15 @@ module Dhall
 			end
 		end
 
-		module Labels
+		module Selector
 			def value
-				captures(:any_label).map(&:value)
+				if captures.key?(:type_selector)
+					capture(:expression).value
+				elsif captures.key?(:labels)
+					captures(:any_label).map(&:value)
+				else
+					string
+				end
 			end
 		end
 

@@ -604,6 +604,34 @@ module Dhall
 			end
 		end
 
+		class RecordProjectionByExpression
+			TypeChecker.register self, Dhall::RecordProjectionByExpression
+
+			def initialize(projection)
+				@selector = projection.selector.normalize
+				@projection = projection
+			end
+
+			def annotate(context)
+				TypeChecker.assert @selector, Dhall::RecordType,
+				                   "RecordProjectionByExpression on #{@selector.class}"
+
+				projection = Dhall::RecordProjection.for(
+					@projection.record,
+					@selector.keys
+				)
+
+				TypeChecker.assert_type projection, @selector.normalize,
+				                        "Type doesn't match #{@selector}",
+				                        context: context
+
+				Dhall::TypeAnnotation.new(
+					value: @projection,
+					type:  @selector
+				)
+			end
+		end
+
 		class Enum
 			TypeChecker.register self, Dhall::Enum
 

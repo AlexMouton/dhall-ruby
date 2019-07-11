@@ -810,6 +810,17 @@ module Dhall
 		end
 	end
 
+	class RecordProjectionByExpression < Expression
+		include(ValueSemantics.for_attributes do
+			record Expression
+			selector Expression
+		end)
+
+		def as_json
+			[10, record.as_json, [selector.as_json]]
+		end
+	end
+
 	class EmptyRecordProjection < Expression
 		include(ValueSemantics.for_attributes do
 			record Expression

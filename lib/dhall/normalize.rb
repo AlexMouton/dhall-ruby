@@ -320,6 +320,18 @@ module Dhall
 		end
 	end
 
+	class RecordProjectionByExpression
+		def normalize
+			sel = selector.normalize
+
+			if sel.is_a?(RecordType)
+				RecordProjection.for(record, sel.keys).normalize
+			else
+				with(record: record.normalize, selector: sel)
+			end
+		end
+	end
+
 	class EmptyRecordProjection
 		def normalize
 			EmptyRecord.new

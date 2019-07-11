@@ -144,7 +144,15 @@ module Dhall
 
 	class RecordProjection
 		def self.decode(record, *selectors)
-			self.for(Dhall.decode(record), selectors)
+			record = Dhall.decode(record)
+			if selectors.length == 1 && selectors[0].is_a?(Array)
+				RecordProjectionByExpression.new(
+					record:   record,
+					selector: Dhall.decode(selectors[0][0])
+				)
+			else
+				self.for(record, selectors)
+			end
 		end
 	end
 

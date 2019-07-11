@@ -146,6 +146,8 @@ module Dhall
 				selectors.reduce(record) do |rec, sels|
 					if sels.is_a?(Array)
 						RecordProjection.for(rec, sels)
+					elsif sels.is_a?(Dhall::Expression)
+						RecordProjectionByExpression.new(record: rec, selector: sels)
 					else
 						RecordSelection.new(record: rec, selector: sels)
 					end

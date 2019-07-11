@@ -238,7 +238,7 @@ module Dhall
 					.map(&:value)
 					.chunk { |s| s.is_a?(String) }
 					.flat_map do |(strs, group)|
-						strs ? group.map { |s| s.encode("UTF-16BE") }.join : group
+						strs ? group.join : group
 					end
 				)
 			end
@@ -269,7 +269,7 @@ module Dhall
 
 			def value
 				ESCAPES.fetch(string) do
-					[string[1..-1]].pack("H*").force_encoding("UTF-16BE")
+					[string.sub(/\Au\{?([A-F0-9]+)\}?/, "\\1").to_i(16)].pack("U*")
 				end
 			end
 		end

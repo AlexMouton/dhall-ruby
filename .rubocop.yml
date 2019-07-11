@@ -18,6 +18,7 @@ Metrics/ClassLength:
 
 Metrics/BlockLength:
   Exclude:
+    - test/*
     - dhall.gemspec
 
 Metrics/ParameterLists:

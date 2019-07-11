@@ -609,24 +609,23 @@ module Dhall
 
 			def initialize(projection)
 				@selector = projection.selector.normalize
-				@projection = projection
+				@project_by_expression = projection
+				@project_by_keys = Dhall::RecordProjection.for(
+					@project_by_expression.record,
+					@selector.keys
+				)
 			end
 
 			def annotate(context)
 				TypeChecker.assert @selector, Dhall::RecordType,
 				                   "RecordProjectionByExpression on #{@selector.class}"
 
-				projection = Dhall::RecordProjection.for(
-					@projection.record,
-					@selector.keys
-				)
-
-				TypeChecker.assert_type projection, @selector.normalize,
+				TypeChecker.assert_type @project_by_keys, @selector,
 				                        "Type doesn't match #{@selector}",
 				                        context: context
 
 				Dhall::TypeAnnotation.new(
-					value: @projection,
+					value: @project_by_expression,
 					type:  @selector
 				)
 			end

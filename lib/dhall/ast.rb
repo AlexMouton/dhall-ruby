@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "lazy_object"
 require "multihashes"
 require "uri"
 require "value_semantics"
@@ -1256,58 +1257,41 @@ module Dhall
 			end
 		end
 
+		Location = LazyObject.new do
+			UnionType.new(
+				alternatives: {
+					"Local"       => Builtins[:Text],
+					"Remote"      => Builtins[:Text],
+					"Environment" => Builtins[:Text],
+					"Missing"     => nil
+				}
+			)
+		end
+
 		class URI
 			include(ValueSemantics.for_attributes do
-				headers   Either(nil, Expression)
-				authority ::String
-				path      ArrayOf(::String)
-				query     Either(nil, ::String)
+				uri       ::URI
+				headers   Either(nil, Expression), default: nil
 			end)
 
-			def initialize(headers, authority, *path, query)
-				super(
-					headers:   headers,
-					authority: authority,
-					path:      path,
-					query:     query,
-				)
-			end
+			def with(attrs)
+				if attrs.key?(:path)
+					attrs[:uri] =
+						uri + Util.path_components_to_uri(*attrs.delete(:path))
+				end
 
-			def with(hash)
-				self.class.new(
-					hash.fetch(:headers, headers),
-					hash.fetch(:authority, authority),
-					*hash.fetch(:path, path),
-					hash.fetch(:query, query)
-				)
-			end
-
-			def self.from_uri(uri)
-				(uri.scheme == "https" ? Https : Http).new(
-					nil,
-					"#{uri.host}:#{uri.port}",
-					*uri.path.split(/\//)[1..-1],
-					uri.query,
-					nil
-				)
+				super
 			end
 
 			def headers
 				header_type = RecordType.new(
 					record: {
-						"header" => Builtins[:Text],
-						"value"  => Builtins[:Text]
+						"mapKey"   => Builtins[:Text],
+						"mapValue" => Builtins[:Text]
 					}
 				)
 
 				super || EmptyList.new(element_type: header_type)
-			end
-
-			def uri
-				escaped_path = path.map do |c|
-					::URI.encode_www_form_component(c).gsub("+", "%20")
-				end
-				URI("#{scheme}://#{authority}/#{escaped_path.join("/")}?#{query}")
 			end
 
 			def chain_onto(relative_to)
@@ -1320,23 +1304,43 @@ module Dhall
 
 			def canonical
 				with(
-					path: (path[1..-1] + [""])
-					.reduce([[], path.first]) { |(pth, prev), c|
+					path: (path[1..-1] + [""]).reduce([[], path.first]) { |(pth, prev), c|
 						c == ".." ? [pth, prev] : [pth + [prev], c]
 					}.first.reject { |c| c == "." }
 				)
 			end
 
+			def port
+				uri.port && uri.port != uri.default_port ? uri.port : nil
+			end
+
+			def authority
+				[
+					uri.userinfo,
+					[uri.host, port].compact.join(":")
+				].compact.join("@")
+			end
+
 			def origin
-				"#{scheme}://#{authority}"
+				"#{uri.scheme}://#{authority}"
 			end
 
 			def to_s
 				uri.to_s
 			end
 
+			def location
+				Union.from(Location, "Remote", to_s.as_dhall)
+			end
+
+			def path
+				path = uri.path.split(/\//, -1).map(&::URI.method(:unescape))
+				path = path[1..-1] if path.length > 1 && path.first.empty?
+				path
+			end
+
 			def as_json
-				[@headers&.as_json, authority, *path, query]
+				[@headers&.as_json, authority, *path, uri.query]
 			end
 		end
 
@@ -1344,19 +1348,11 @@ module Dhall
 			def resolve(resolver)
 				resolver.resolve_http(self)
 			end
-
-			def scheme
-				"http"
-			end
 		end
 
 		class Https < URI
 			def resolve(resolver)
 				resolver.resolve_https(self)
-			end
-
-			def scheme
-				"https"
 			end
 		end
 
@@ -1402,6 +1398,10 @@ module Dhall
 				pathname.to_s
 			end
 
+			def location
+				Union.from(Location, "Local", to_s.as_dhall)
+			end
+
 			def as_json
 				path
 			end
@@ -1412,8 +1412,8 @@ module Dhall
 				Pathname.new("/").join(*path)
 			end
 
-			def to_uri(scheme, authority)
-				scheme.new(nil, authority, *path, nil)
+			def to_uri(scheme, base_uri)
+				scheme.new(uri: base_uri + Util.path_components_to_uri(*path))
 			end
 
 			def chain_onto(relative_to)
@@ -1428,6 +1428,10 @@ module Dhall
 		class RelativePath < Path
 			def pathname
 				Pathname.new(".").join(*path)
+			end
+
+			def to_s
+				"./#{pathname}"
 			end
 
 			def chain_onto(relative_to)
@@ -1509,6 +1513,10 @@ module Dhall
 				end}"
 			end
 
+			def location
+				Union.from(Location, "Environment", to_s.as_dhall)
+			end
+
 			def hash
 				@var.hash
 			end
@@ -1516,7 +1524,7 @@ module Dhall
 			def eql?(other)
 				other.is_a?(self.class) && other.var == var
 			end
-			alias eql? ==
+			alias == eql?
 
 			def as_json
 				@var
@@ -1542,6 +1550,15 @@ module Dhall
 				"missing"
 			end
 
+			def location
+				Union.from(Location, "Missing", nil)
+			end
+
+			def eql?(other)
+				other.class == self.class
+			end
+			alias == eql?
+
 			def as_json
 				[]
 			end
@@ -1561,9 +1578,16 @@ module Dhall
 			end
 		end
 
+		class AsLocation
+			def self.call(*)
+				raise "AsLocation is only a marker, you don't actually call it"
+			end
+		end
+
 		IMPORT_TYPES = [
 			Expression,
-			Text
+			Text,
+			AsLocation
 		].freeze
 
 		PATH_TYPES = [

@@ -427,8 +427,24 @@ module Dhall
 			).then { |h| @expr.with(h) }
 		end
 
+		class ImportAsLocationResolver < ExpressionResolver
+			def resolve(resolver:, relative_to:)
+				Promise.resolve(nil).then do
+					@expr.real_path(relative_to).location
+				end
+			end
+		end
+
 		class ImportResolver < ExpressionResolver
 			register_for Import
+
+			def self.new(expr)
+				if expr.import_type == Import::AsLocation
+					ImportAsLocationResolver.new(expr)
+				else
+					super
+				end
+			end
 
 			def resolve(resolver:, relative_to:)
 				Promise.resolve(nil).then do

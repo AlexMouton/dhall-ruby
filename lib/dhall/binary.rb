@@ -6,6 +6,7 @@ require "multihashes"
 
 require "dhall/ast"
 require "dhall/builtins"
+require "dhall/parser"
 
 module Dhall
 	def self.from_binary(cbor_binary)
@@ -210,13 +211,46 @@ module Dhall
 			end
 		end
 
+		class URI
+			def self.decode(headers, authority, *path, query)
+				new(
+					headers: headers,
+					uri:     ::URI.scheme_list[name.split(/::/).last.upcase].build(
+						Parser.parse(authority, root: :authority).value.merge(
+							path:  Util.path_components_to_uri(*path).path,
+							query: query
+						)
+					)
+				)
+			end
+		end
+
+		class Path
+			def self.decode(*args)
+				new(*args)
+			end
+		end
+
+		class EnvironmentVariable
+			def self.decode(*args)
+				new(*args)
+			end
+		end
+
+		class MissingImport
+			def self.decode(*args)
+				new(*args)
+			end
+		end
+
 		def self.decode(integrity_check, import_type, path_type, *parts)
 			parts[0] = Dhall.decode(parts[0]) if path_type < 2 && !parts[0].nil?
+			path_type = PATH_TYPES.fetch(path_type)
 
 			new(
 				IntegrityCheck.decode(integrity_check),
 				IMPORT_TYPES[import_type],
-				PATH_TYPES[path_type].new(*parts)
+				path_type.decode(*parts)
 			)
 		end
 	end

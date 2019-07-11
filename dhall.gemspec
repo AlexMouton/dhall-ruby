@@ -27,6 +27,7 @@ Gem::Specification.new do |spec|
 
 	spec.add_dependency "cbor", "~> 0.5.9.3"
 	spec.add_dependency "citrus", "~> 3.0"
+	spec.add_dependency "lazy_object", "~> 0.0.3"
 	spec.add_dependency "multihashes", "~> 0.1.3"
 	spec.add_dependency "promise.rb", "~> 0.7.4"
 	spec.add_dependency "value_semantics", "~> 3.0"

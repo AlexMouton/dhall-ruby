@@ -12,7 +12,7 @@ module Dhall
 
 		def self.assert_type(expr, assertion, message, context:)
 			aexpr = self.for(expr).annotate(context)
-			type = aexpr.type
+			type = aexpr.type.normalize
 			raise TypeError, "#{message}: #{type}" unless assertion === type
 			aexpr
 		end

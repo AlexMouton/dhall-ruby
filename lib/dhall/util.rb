@@ -192,5 +192,13 @@ module Dhall
 					.reduce(&method(:longest_common_prefix))&.length.to_i
 			end
 		end
+
+		def self.path_components_to_uri(*components)
+			URI("/#{components.map(&method(:uri_escape)).join("/")}")
+		end
+
+		def self.uri_escape(s)
+			::URI.encode_www_form_component(s).gsub("+", "%20")
+		end
 	end
 end

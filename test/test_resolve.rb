@@ -264,7 +264,7 @@ class TestResolve < Minitest::Test
 				digest: Dhall::Variable["_"].digest.digest
 			),
 			Dhall::Import::Expression,
-			Dhall::Import::Http.new(nil, "example.com", "thing.dhall", nil)
+			Dhall::Import::Http.new(uri: URI("http://example.com/thing.dhall"))
 		)
 
 		cache = Dhall::Resolvers::RamCache.new
@@ -315,19 +315,51 @@ class TestResolve < Minitest::Test
 		assert_equal Dhall::Variable["_"], expr.resolve.sync
 	end
 
-	DIRPATH = Pathname.new(File.dirname(__FILE__))
-	TESTS = DIRPATH + "../dhall-lang/tests/import/"
+	DIRPATH = Pathname.new(File.dirname(__FILE__)).realpath
+	TESTS = (DIRPATH + "../dhall-lang/tests/import/").realpath
 
 	Pathname.glob(TESTS + "success/**/*A.dhall").each do |path|
+		Dir.chdir(path.dirname)
+		ENV["XDG_CACHE_HOME"] = (TESTS + "cache").to_s
+
 		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhall$/, "")
 
 		define_method("test_#{test}") do
+			stub_request(:any, "https://httpbin.org/user-agent")
+				.to_return do |req|
+					{
+						headers: { "Access-Control-Allow-Origin": "*" },
+						body:    <<~JSON
+							{
+							  "user-agent": "#{req.headers["User-Agent"]}"
+							}
+						JSON
+					}
+				end
+
+			stub_request(
+				:get,
+				"https://raw.githubusercontent.com/dhall-lang/dhall-lang/" \
+				"master/tests/import/success/customHeadersA.dhall"
+			).to_return(body: (TESTS + "success/customHeadersA.dhall").read)
+
+			stub_request(:get, "https://test.dhall-lang.org/Bool/package.dhall")
+				.with(headers: { "Test" => "Example" })
+				.to_return(body: "./test.dhall")
+
+			stub_request(:get, "https://test.dhall-lang.org/Bool/test.dhall")
+				.with(headers: { "Test" => "Example" })
+				.to_return(body: (TESTS + "#{test}B.dhall").read)
+
+			Dhall::Function.disable_alpha_normalization!
 			assert_equal(
-				Dhall::Parser.parse_file(TESTS + "#{test}B.dhall").value,
+				Dhall::Parser.parse_file(TESTS + "#{test}B.dhall").value.normalize,
 				Dhall::Parser.parse_file(path).value.resolve(
-					relative_to: Dhall::Import::Path.from_string(path)
-				).sync
+					resolver:    Dhall::Resolvers::Standard.new,
+					relative_to: Dhall::Import::Path.from_string("./")
+				).sync.normalize
 			)
+			Dhall::Function.enable_alpha_normalization!
 		end
 	end
 

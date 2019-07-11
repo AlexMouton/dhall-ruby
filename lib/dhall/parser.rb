@@ -510,6 +510,8 @@ module Dhall
 			def value
 				import_type = if captures.key?(:text)
 					Dhall::Import::Text
+				elsif captures.key?(:location)
+					Dhall::Import::AsLocation
 				else
 					Dhall::Import::Expression
 				end
@@ -538,29 +540,45 @@ module Dhall
 			end
 		end
 
+		module Scheme
+			def value
+				::URI.scheme_list[string.upcase]
+			end
+		end
+
+		module Authority
+			def value
+				{
+					userinfo: capture(:userinfo)&.value,
+					host:     capture(:host).value,
+					port:     capture(:port)&.value
+				}
+			end
+		end
+
 		module Http
 			SCHEME = {
 				"http"  => Dhall::Import::Http,
 				"https" => Dhall::Import::Https
 			}.freeze
 
-			def value
-				http = capture(:http_raw)
-				SCHEME.fetch(http.capture(:scheme).value).new(
-					capture(:import_hashed)&.value(Dhall::Import::Expression),
-					http.capture(:authority).value,
-					*unescaped_components,
-					http.capture(:query)&.value
-				)
+			def http(key)
+				@http ||= capture(:http_raw)
+				@http.capture(key)&.value
 			end
 
-			def unescaped_components
-				capture(:http_raw)
-					.capture(:path)
-					.captures(:path_component)
-					.map do |pc|
-						pc.value(URI.method(:unescape))
-					end
+			def value
+				uri = http(:scheme).build(
+					http(:authority).merge(
+						path:  http(:url_path) || "/",
+						query: http(:query)
+					)
+				)
+
+				SCHEME.fetch(uri.scheme).new(
+					headers: capture(:import_expression)&.value,
+					uri:     uri
+				)
 			end
 		end
 
@@ -637,12 +655,25 @@ module Dhall
 		end
 
 		module PathComponent
-			def value(unescaper=:itself.to_proc)
+			def value(escaper=:itself.to_proc)
 				if captures.key?(:quoted_path_component)
-					capture(:quoted_path_component).value
+					escaper.call(capture(:quoted_path_component).value)
 				else
-					unescaper.call(capture(:unquoted_path_component).value)
+					capture(:unquoted_path_component).value
 				end
+			end
+		end
+
+		module UrlPath
+			def value
+				"/" + matches.map { |pc|
+					if pc.captures.key?(:path_component)
+						# We escape here because ruby stdlib URI just stores path unparsed
+						pc.value(Util.method(:uri_escape))
+					else
+						pc.string[1..-1]
+					end
+				}.join("/")
 			end
 		end
 

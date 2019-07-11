@@ -109,7 +109,7 @@ module Dhall
 				path_reader: ReadPathSources,
 				http_reader: ReadHttpSources,
 				https_reader: http_reader,
-				public_gateway: "cloudflare-ipfs.com"
+				public_gateway: URI("https://cloudflare-ipfs.com")
 			)
 				@path_reader = path_reader
 				@http_reader = http_reader
@@ -142,7 +142,7 @@ module Dhall
 			def gateway_fallback(source, promise)
 				promise.catch {
 					@http_reader.call([
-						source.to_uri(Import::Http, "localhost:8000")
+						source.to_uri(Import::Http, URI("http://localhost:8000"))
 					], "localhost").first
 				}.catch do
 					@https_reader.call([
@@ -362,7 +362,7 @@ module Dhall
 				http_reader: ReadHttpSources,
 				https_reader: http_reader,
 				environment_reader: ReadEnvironmentSources,
-				ipfs_public_gateway: "cloudflare-ipfs.com",
+				ipfs_public_gateway: URI("https://cloudflare-ipfs.com"),
 				cache: RamCache.new,
 				max_depth: 50
 			)

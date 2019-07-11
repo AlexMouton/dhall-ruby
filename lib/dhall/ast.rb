@@ -34,8 +34,7 @@ module Dhall
 		end
 
 		def *(other)
-			case other
-			when Natural
+			if other.is_a?(Natural) && other.zero?
 				other * self
 			else
 				Operator::Times.new(lhs: self, rhs: other)

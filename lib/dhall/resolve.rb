@@ -185,7 +185,7 @@ module Dhall
 
 			def fetch(key, &block)
 				if key.is_a?(String) && key.start_with?("sha256:")
-					file = @dir + key.sub(/^sha256:/, "")
+					file = @dir + key.sub(/^sha256:/, "1220")
 					return Dhall.from_binary(file.binread) if file.exist?
 
 					Promise.resolve(nil).then(&block).then do |result|

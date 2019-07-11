@@ -373,7 +373,12 @@ class TestResolve < Minitest::Test
 				"master/tests/import/data/referentiallyOpaque.dhall"
 			).to_return(status: 200, body: "env:HOME as Text")
 
-			assert_raises Dhall::ImportFailedException do
+			e = if test =~ /hashMismatch/
+				Dhall::Import::IntegrityCheck::FailureException
+			else
+				Dhall::ImportFailedException
+			end
+			assert_raises e do
 				Dhall::Parser.parse_file(path).value.resolve(
 					relative_to: Dhall::Import::Path.from_string(path)
 				).sync

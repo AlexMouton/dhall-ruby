@@ -89,7 +89,7 @@ module Dhall
 		StandardReadHttpSources = lambda do |sources, parent_origin|
 			ReadHttpSources.call(sources, parent_origin).map do |source_promise|
 				source_promise.then do |s|
-					s = s.force_encoding("UTF-8")
+					s = s.dup.force_encoding("UTF-8")
 					unless s.valid_encoding?
 						raise ImportFailedException, "#{s.inspect} is not valid UTF-8"
 					end

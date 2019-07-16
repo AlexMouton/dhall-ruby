@@ -40,9 +40,13 @@ module Dhall
 			@typecheckers[node_type] ||= [typechecker, extras]
 		end
 
-		def self.type_of(expr)
+		def self.annotate(expr)
 			return if expr.nil?
-			TypeChecker.for(expr).annotate(TypeChecker::Context.new).type
+			TypeChecker.for(expr).annotate(TypeChecker::Context.new)
+		end
+
+		def self.type_of(expr)
+			annotate(expr)&.type
 		end
 
 		class Context

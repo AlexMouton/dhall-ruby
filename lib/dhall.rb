@@ -9,6 +9,7 @@ require "dhall/normalize"
 require "dhall/parser"
 require "dhall/resolve"
 require "dhall/typecheck"
+require "dhall/types"
 
 module Dhall
 	using Dhall::AsDhall

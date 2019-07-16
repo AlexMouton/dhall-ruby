@@ -284,5 +284,11 @@ module Dhall
 				FunctionProxy.new(self)
 			end
 		end
+
+		refine ::Method do
+			def as_dhall
+				to_proc.as_dhall
+			end
+		end
 	end
 end

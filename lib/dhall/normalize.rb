@@ -120,7 +120,7 @@ module Dhall
 		end
 	end
 
-	class FunctionProxy
+	class FunctionProxyRaw
 		def shift(*)
 			self
 		end

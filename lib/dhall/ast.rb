@@ -217,7 +217,29 @@ module Dhall
 		end
 	end
 
-	class FunctionProxy < Function
+	class RubyObjectRaw < Expression
+		def initialize(object)
+			@object = object
+		end
+
+		def unwrap
+			@object
+		end
+
+		def respond_to_missing?(m)
+			super || @object.respond_to?(m)
+		end
+
+		def method_missing(m, *args, &block)
+			if @object.respond_to?(m)
+				@object.public_send(m, *args, &block)
+			else
+				super
+			end
+		end
+	end
+
+	class FunctionProxyRaw < Function
 		def initialize(callable, curry: true)
 			@callable = if !curry
 				callable
@@ -231,11 +253,17 @@ module Dhall
 		end
 
 		def call(*args, &block)
-			@callable.call(*args.map { |arg| arg&.as_dhall }, &block).as_dhall
+			RubyObjectRaw.new(@callable.call(*args.map { |arg| arg&.as_dhall }, &block))
 		end
 
 		def as_json
 			raise "Cannot serialize #{self}"
+		end
+	end
+
+	class FunctionProxy < FunctionProxyRaw
+		def call(*args, &block)
+			super.unwrap.as_dhall
 		end
 	end
 

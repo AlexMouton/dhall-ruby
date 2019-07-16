@@ -70,6 +70,9 @@ Style/Documentation:
 Style/FormatString:
   EnforcedStyle: percent
 
+Style/FormatStringToken:
+  Enabled: false
+
 Style/RegexpLiteral:
   AllowInnerSlashes: true
 

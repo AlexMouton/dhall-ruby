@@ -564,10 +564,11 @@ module Dhall
 			def value
 				uri = http(:scheme).build(
 					http(:authority).merge(
-						path:  http(:url_path) || "/",
-						query: http(:query)
+						path: http(:url_path) || "/"
 					)
 				)
+
+				uri.instance_variable_set(:@query, http(:query))
 
 				SCHEME.fetch(uri.scheme).new(
 					headers: capture(:import_expression)&.value,

@@ -228,15 +228,13 @@ module Dhall
 
 		class URI
 			def self.decode(headers, authority, *path, query)
-				new(
-					headers: headers,
-					uri:     ::URI.scheme_list[name.split(/::/).last.upcase].build(
-						Parser.parse(authority, root: :authority).value.merge(
-							path:  Util.path_components_to_uri(*path).path,
-							query: query
-						)
+				uri = ::URI.scheme_list[name.split(/::/).last.upcase].build(
+					Parser.parse(authority, root: :authority).value.merge(
+						path: Util.path_components_to_uri(*path).path
 					)
 				)
+				uri.instance_variable_set(:@query, query)
+				new(headers: headers, uri: uri)
 			end
 		end
 

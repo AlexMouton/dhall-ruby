@@ -113,6 +113,15 @@ module Dhall
 		end
 	end
 
+	class ToMap
+		def self.decode(record, type=nil)
+			new(
+				record: Dhall.decode(record),
+				type:   type.nil? ? nil : Dhall.decode(type)
+			)
+		end
+	end
+
 	class Merge
 		def self.decode(record, input, type=nil)
 			new(
@@ -335,6 +344,7 @@ module Dhall
 		nil,
 		Import,
 		LetBlock,
-		TypeAnnotation
+		TypeAnnotation,
+		ToMap
 	].freeze
 end

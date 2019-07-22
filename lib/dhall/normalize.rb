@@ -265,6 +265,20 @@ module Dhall
 		end
 	end
 
+	class ToMap
+		def normalize
+			normalized = super
+			unless [Record, EmptyRecord].include?(normalized.record.class)
+				return normalized
+			end
+
+			List.of(*normalized.record.to_h.to_a.map do |(k, v)|
+				k = Text.new(value: k)
+				Record.new(record: { "mapKey" => k, "mapValue" => v })
+			end, type: normalized.type&.argument)
+		end
+	end
+
 	class Merge
 		def normalize
 			normalized = super

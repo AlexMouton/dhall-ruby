@@ -21,8 +21,10 @@ module Dhall
 
 		module Expression
 			def value
+				return list if string =~ /\A\[\s*\]/
+
 				key =
-					[:let_binding, :lambda, :forall, :arrow, :if, :merge, :list]
+					[:let_binding, :lambda, :forall, :arrow, :if, :merge, :tomap]
 					.find { |k| captures.key?(k) }
 
 				key ? public_send(key) : super
@@ -75,7 +77,14 @@ module Dhall
 			end
 
 			def list
-				EmptyList.new(element_type: capture(:import_expression).value)
+				EmptyList.new(type: capture(:application_expression).value)
+			end
+
+			def tomap
+				ToMap.new(
+					record: capture(:import_expression).value,
+					type:   capture(:application_expression).value
+				)
 			end
 		end
 
@@ -121,9 +130,9 @@ module Dhall
 				if captures.key?(:merge)
 					merge
 				elsif captures.key?(:some)
-					Optional.new(
-						value: capture(:import_expression).value
-					)
+					Optional.new(value: capture(:import_expression).value)
+				elsif captures.key?(:tomap)
+					ToMap.new(record: capture(:import_expression).value)
 				else
 					super
 				end
@@ -466,25 +475,6 @@ module Dhall
 		end
 
 		RecordTypeEntry = RecordLiteralEntry
-
-		module EmptyCollection
-			def value
-				if captures.key?(:list)
-					EmptyList.new(element_type: capture(:import_expression).value)
-				else
-					OptionalNone.new(value_type: capture(:import_expression).value)
-				end
-			end
-		end
-
-		module NonEmptyOptional
-			def value
-				Optional.new(
-					value:      capture(:expression).value,
-					value_type: capture(:import_expression).value
-				)
-			end
-		end
 
 		module AnnotatedExpression
 			def value

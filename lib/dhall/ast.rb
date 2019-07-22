@@ -612,6 +612,18 @@ module Dhall
 		end
 	end
 
+	class ToMap < Expression
+		include(ValueSemantics.for_attributes do
+			record Expression
+			type   Either(Expression, nil), default: nil
+		end)
+
+		def as_json
+			[27, record.as_json] +
+				(type.nil? ? [] : [type.as_json])
+		end
+	end
+
 	class RecordType < Expression
 		include(ValueSemantics.for_attributes do
 			record Util::HashOf.new(::String, Expression, min: 1)

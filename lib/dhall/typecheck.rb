@@ -679,6 +679,39 @@ module Dhall
 			end
 		end
 
+		class ToMap
+			TypeChecker.register self, Dhall::ToMap
+
+			def initialize(tomap)
+				@tomap = tomap
+				@record = TypeChecker.for(tomap.record)
+			end
+
+			def check_annotation(record_type)
+				if record_type.is_a?(Dhall::EmptyRecordType)
+					TypeChecker.assert @tomap.type, Dhall::Expression,
+					                   "toMap {=} has no annotation"
+				else
+					t = Types::MAP(v: record_type.record.values.first)
+
+					TypeChecker.assert t, (@tomap.type || t),
+					                   "toMap does not match annotation"
+				end
+			end
+
+			def annotate(context)
+				record_type = @record.annotate(context).type
+				TypeChecker.assert record_type, Dhall::RecordType,
+				                   "toMap on a non-record: #{record_type.inspect}"
+
+				TypeChecker.assert record_type.record.values, Util::ArrayAllTheSame,
+				                   "toMap heterogenous: #{record_type.inspect}"
+
+				type = check_annotation(record_type)
+				Dhall::TypeAnnotation.new(value: @tomap, type: type)
+			end
+		end
+
 		class Merge
 			TypeChecker.register self, Dhall::Merge
 

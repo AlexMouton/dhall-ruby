@@ -362,10 +362,16 @@ module Dhall
 			TypeChecker.register self, Dhall::EmptyList
 
 			def initialize(expr)
-				@expr = expr
+				@expr = expr.with(type: expr.type.normalize)
 			end
 
 			def annotate(context)
+				TypeChecker.assert @expr.type, Dhall::Application,
+				                   "EmptyList unknown type #{@expr.type.inspect}"
+
+				TypeChecker.assert @expr.type.function, Builtins[:List],
+				                   "EmptyList unknown type #{@expr.type.inspect}"
+
 				TypeChecker.assert_type @expr.element_type, Builtins[:Type],
 				                        "EmptyList element type not of type Type",
 				                        context: context
@@ -387,7 +393,7 @@ module Dhall
 				end
 
 				def annotation
-					list = @alist.with(element_type: element_type)
+					list = @alist.with(type: Builtins[:List].call(element_type))
 					Dhall::TypeAnnotation.new(type: list.type, value: list)
 				end
 
@@ -541,12 +547,13 @@ module Dhall
 
 			class Selector
 				def self.for(annotated_record)
-					if KINDS.include?(annotated_record.type)
+					typ = annotated_record.type.normalize
+					if KINDS.include?(typ)
 						TypeSelector.new(annotated_record.value)
-					elsif annotated_record.type.class == Dhall::RecordType
-						new(annotated_record.type)
+					elsif typ.class == Dhall::RecordType
+						new(typ)
 					else
-						raise TypeError, "RecordSelection on #{annotated_record.type}"
+						raise TypeError, "RecordSelection on #{typ}"
 					end
 				end
 

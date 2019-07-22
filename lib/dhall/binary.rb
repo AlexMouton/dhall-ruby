@@ -343,6 +343,7 @@ module Dhall
 		Import,
 		LetBlock,
 		TypeAnnotation,
-		ToMap
+		ToMap,
+		EmptyList
 	].freeze
 end

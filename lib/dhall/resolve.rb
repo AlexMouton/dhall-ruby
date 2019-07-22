@@ -41,15 +41,7 @@ module Dhall
 					source.headers.to_a.map { |h|
 						(h.fetch("header") { h.fetch("mapKey") }).to_s
 					}.join(",")
-				r = Net::HTTP.start(
-					uri.hostname,
-					uri.port,
-					use_ssl:       uri.scheme == "https",
-					open_timeout:  timeout,
-					ssl_timeout:   timeout,
-					read_timeout:  timeout,
-					write_timeout: timeout
-				) { |http| http.request(req) }
+				r = Util.net_http_req_with_timeout(uri, req, timeout: timeout)
 
 				raise ImportFailedException, source if r.code != "200"
 				unless r["Access-Control-Allow-Origin"] == parent_origin ||
@@ -65,20 +57,17 @@ module Dhall
 					PreflightCORS.call(source, parent_origin)
 					timeout = source.deadline.timeout
 					uri = source.uri
-					req = Net::HTTP::Get.new(uri)
-					source.headers.each do |header|
-						req[(header.fetch("header") { header.fetch("mapKey") }).to_s] =
-							(header.fetch("value") { header.fetch("mapValue") }).to_s
+					r = loop do
+						req = Net::HTTP::Get.new(uri)
+						source.headers.each do |header|
+							req[(header.fetch("header") { header.fetch("mapKey") }).to_s] =
+								(header.fetch("value") { header.fetch("mapValue") }).to_s
+						end
+						r = Util.net_http_req_with_timeout(uri, req, timeout: timeout)
+
+						break r unless ["301", "302", "303", "307", "308"].include?(r.code)
+						uri = URI(r["Location"])
 					end
-					r = Net::HTTP.start(
-						uri.hostname,
-						uri.port,
-						use_ssl:       uri.scheme == "https",
-						open_timeout:  timeout,
-						ssl_timeout:   timeout,
-						read_timeout:  timeout,
-						write_timeout: timeout
-					) { |http| http.request(req) }
 
 					raise ImportFailedException, source if r.code != "200"
 					r.body

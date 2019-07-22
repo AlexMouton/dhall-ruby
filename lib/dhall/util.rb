@@ -200,5 +200,17 @@ module Dhall
 		def self.uri_escape(s)
 			::URI.encode_www_form_component(s).gsub("+", "%20")
 		end
+
+		def self.net_http_req_with_timeout(uri, req, timeout:)
+			Net::HTTP.start(
+				uri.hostname,
+				uri.port,
+				use_ssl:       uri.scheme == "https",
+				open_timeout:  timeout,
+				ssl_timeout:   timeout,
+				read_timeout:  timeout,
+				write_timeout: timeout
+			) { |http| http.request(req) }
+		end
 	end
 end

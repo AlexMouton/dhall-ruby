@@ -73,6 +73,10 @@ Style/FormatString:
 Style/FormatStringToken:
   Enabled: false
 
+Style/MethodName:
+  Exclude:
+    - lib/dhall/types.rb
+
 Style/RegexpLiteral:
   AllowInnerSlashes: true
 

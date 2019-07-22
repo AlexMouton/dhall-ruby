@@ -29,7 +29,8 @@ class TestParser < Minitest::Test
 	Pathname.glob(TESTS + "failure/**/*.dhall").each do |path|
 		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhall$/, "")
 		define_method("test_#{test}") do
-			assert_raises Citrus::ParseError do
+			# ArgumentError for non-utf8
+			assert_raises Citrus::ParseError, ArgumentError do
 				Dhall::Parser.parse_file(path).value
 			end
 		end

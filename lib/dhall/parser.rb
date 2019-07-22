@@ -280,9 +280,34 @@ module Dhall
 				"t"  => "\t"
 			}.freeze
 
+			NON_CHARACTERS = [
+				(0xD800..0xDFFF),
+				(0xFFFE..0xFFFF),
+				(0x1FFFE..0x1FFFF),
+				(0x2FFFE..0x2FFFF),
+				(0x3FFFE..0x3FFFF),
+				(0x4FFFE..0x4FFFF),
+				(0x5FFFE..0x5FFFF),
+				(0x6FFFE..0x6FFFF),
+				(0x7FFFE..0x7FFFF),
+				(0x8FFFE..0x8FFFF),
+				(0x9FFFE..0x9FFFF),
+				(0xAFFFE..0xAFFFF),
+				(0xBFFFE..0xBFFFF),
+				(0xCFFFE..0xCFFFF),
+				(0xDFFFE..0xDFFFF),
+				(0xEFFFE..0xEFFFF),
+				(0xFFFFE..0xFFFFF),
+				(0x10FFFE..0x10FFFF)
+			].freeze
+
 			def value
 				ESCAPES.fetch(string) do
-					[string.sub(/\Au\{?([A-F0-9]+)\}?/, "\\1").to_i(16)].pack("U*")
+					code = string.sub(/\Au\{?([A-F0-9]+)\}?/, "\\1").to_i(16)
+					NON_CHARACTERS.each do |range|
+						raise Citrus::ParseError, input if range.include?(code)
+					end
+					[code].pack("U*")
 				end
 			end
 		end

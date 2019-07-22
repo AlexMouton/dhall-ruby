@@ -106,7 +106,10 @@ module Dhall
 			refine List do
 				def to_ruby(&decode)
 					arr = to_a.map(&decode)
-					return arr unless element_type == Types::MAP_ENTRY
+					unless element_type.is_a?(RecordType) &&
+					       element_type.keys == ["mapKey", "mapValue"]
+						return arr
+					end
 					Hash[arr.map { |h| h.values_at("mapKey", "mapValue") }]
 				end
 			end

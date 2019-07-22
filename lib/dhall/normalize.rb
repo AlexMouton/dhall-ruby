@@ -330,7 +330,7 @@ module Dhall
 
 	class RecordProjection
 		def normalize
-			record.normalize.slice(*selectors)
+			record.normalize.slice(*selectors.sort)
 		end
 	end
 

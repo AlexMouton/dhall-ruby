@@ -580,7 +580,7 @@ module Dhall
 		include(ValueSemantics.for_attributes do
 			record Expression
 			input  Expression
-			type   Either(Expression, nil)
+			type   Either(Expression, nil), default: nil
 		end)
 
 		def as_json

@@ -85,12 +85,18 @@ module Dhall
 
 	class List
 		def self.decode(type, *els)
-			type = type.nil? ? nil : Dhall.decode(type)
+			type = type.nil? ? nil : Builtins[:List].call(Dhall.decode(type))
 			if els.empty?
-				EmptyList.new(element_type: type)
+				EmptyList.new(type: type)
 			else
-				List.new(elements: els.map(&Dhall.method(:decode)), element_type: type)
+				List.new(elements: els.map(&Dhall.method(:decode)), type: type)
 			end
+		end
+	end
+
+	class EmptyList
+		def self.decode(type)
+			EmptyList.new(type: Dhall.decode(type))
 		end
 	end
 

@@ -245,7 +245,7 @@ module Dhall
 
 	class EmptyList
 		def normalize
-			super.with(element_type: element_type.normalize)
+			super.with(type: type.normalize)
 		end
 	end
 

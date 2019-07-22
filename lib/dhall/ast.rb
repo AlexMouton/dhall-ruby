@@ -373,8 +373,17 @@ module Dhall
 
 		include(ValueSemantics.for_attributes do
 			elements     Util::ArrayOf.new(Expression, min: 1)
-			element_type Either(nil, Expression), default: nil
+			type         Either(nil, Expression), default: nil
 		end)
+
+		def initialize(attrs)
+			if attrs.key?(:element_type)
+				et = attrs.delete(:element_type)
+				attrs[:type] = self.class.as_dhall.call(et) if et
+			end
+
+			super
+		end
 
 		def self.of(*args, type: nil)
 			if args.empty?
@@ -388,11 +397,13 @@ module Dhall
 			Builtins[:List]
 		end
 
-		def type
-			Dhall::Application.new(
-				function: self.class.as_dhall,
-				argument: element_type
-			)
+		def element_type
+			if type.nil?
+			elsif type.is_a?(Application) && type.function == Builtins[:List]
+				type.argument
+			else
+				raise "Cannot get element_type of: #{type.inspect}"
+			end
 		end
 
 		def as_json
@@ -400,9 +411,10 @@ module Dhall
 		end
 
 		def map(type: nil, &block)
+			type = type.nil? ? nil : Builtins[:List].call(type.as_dhall)
 			with(
-				elements:     elements.each_with_index.map(&block),
-				element_type: type&.as_dhall
+				elements: elements.each_with_index.map(&block),
+				type:     type
 			)
 		end
 
@@ -450,11 +462,22 @@ module Dhall
 
 	class EmptyList < List
 		include(ValueSemantics.for_attributes do
-			element_type Either(nil, Expression)
+			type Either(nil, Expression)
 		end)
+
+		def initialize(attrs)
+			if attrs.key?(:element_type)
+				et = attrs.delete(:element_type)
+				attrs[:type] = self.class.as_dhall.call(et) if et
+			end
+
+			super
+		end
 
 		def as_json
 			[4, element_type.as_json]
+		rescue
+			[28, type.as_json]
 		end
 
 		def map(type: nil)

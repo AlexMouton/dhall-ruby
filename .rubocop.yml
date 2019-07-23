@@ -80,6 +80,9 @@ Style/MethodName:
 Style/RegexpLiteral:
   AllowInnerSlashes: true
 
+Style/RescueStandardError:
+  EnforcedStyle: implicit
+
 Style/SpecialGlobalVars:
   EnforcedStyle: use_perl_names
 

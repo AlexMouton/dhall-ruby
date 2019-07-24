@@ -16,30 +16,40 @@ def compile(source)
 	)
 end
 
+module FilenameWriter
+	def self.write(_, out, dhall)
+		warn out
+		out.dirname.mkpath
+		out.write(dhall.to_binary)
+	end
+end
+
+module CacheWriter
+	def self.write(output_directory, out, dhall)
+		base = "1220#{dhall.digest.hexdigest}"
+		out = out.dirname + base
+		if output_directory
+			out = output_directory + base
+			out.dirname.mkpath
+		end
+		warn out
+		out.write(dhall.to_cbor)
+	end
+end
+
 def compile_file(file_path, relative_to: Pathname.new("."))
+	$stderr.print "#{file_path} => "
 	out = file_path.sub_ext(@extension)
 	if @output_directory
 		out = @output_directory + out.relative_path_from(relative_to)
 	end
-	$stderr.print "#{file_path} => "
-	warn out unless @cache
-	compile(file_path.expand_path).then { |dhall|
-		if @cache
-			base = "1220#{dhall.digest.hexdigest}"
-			out = file_path.dirname + base
-			if @output_directory
-				out = @output_directory + base
-				out.dirname.mkpath
-			end
-			warn out
-			out.write(dhall.to_cbor)
-		else
-			out.dirname.mkpath
-			out.write(dhall.to_binary)
-		end
-	}
+	compile(file_path.expand_path).then do |dhall|
+		@writer.write(@output_directory, out, dhall)
+	end
 end
 
+@writer = FilenameWriter
+# rubocop:disable Metrics/BlockLength
 opt_parser = OptionParser.new do |opts|
 	opts.banner = "Usage: dhall-compile [options] [-] [files_and_dirs]"
 
@@ -65,7 +75,7 @@ opt_parser = OptionParser.new do |opts|
 		"Write output in standard dhall file cache format"
 	) do
 		@extension = ""
-		@cache = true
+		@writer = CacheWriter
 	end
 
 	opts.on("-h", "--help", "Show this usage information") do
@@ -73,6 +83,7 @@ opt_parser = OptionParser.new do |opts|
 		exit
 	end
 end
+# rubocop:enable Metrics/BlockLength
 
 opt_parser.parse!
 

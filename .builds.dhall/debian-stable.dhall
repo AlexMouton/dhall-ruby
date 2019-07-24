@@ -16,7 +16,7 @@ in
 	},
 	sources = ["https://git.sr.ht/~singpolyma/dhall-ruby"],
 	environment = { CI = 1 },
-	secrets = ["253ed950-242c-4d53-ba56-5cf1175e7d29"],
+	secrets = ["c2675a05-0d2f-4f45-af27-0af04a1fb9fe"],
 	tasks = map Map Map (map Entry Entry (\(sentry: Entry) ->
 		sentry // { mapValue = "cd dhall-ruby\n" ++ sentry.mapValue }
 	)) [
@@ -27,16 +27,14 @@ in
 			''
 			bundle exec ruby -E UTF-8 bin/dhall-compile -e -o /tmp/Prelude dhall-lang/Prelude
 			cd /tmp
-			. ~/.pinata
-			curl -H "pinata_api_key: $PINATA_API_KEY" -H "pinata_secret_api_key: $PINATA_SECRET_API_KEY" https://api.pinata.cloud/pinning/pinFileToIPFS $(find Prelude -type f -printf "-F'file=@%h/%f' ")
+			curl -H @$HOME/.pinata https://api.pinata.cloud/pinning/pinFileToIPFS -FpinataMetadata="{\"name\": \"Prelude $(date -I)\"}" $(find Prelude -type f -printf "-Ffile=@%h/%f;filename=%h/%f ")
 			''
 		}],
 		[{ mapKey = "cache_prelude", mapValue =
 			''
 			bundle exec ruby -E UTF-8 bin/dhall-compile -co /tmp/PreludeCache dhall-lang/Prelude
 			cd /tmp
-			. ~/.pinata
-			curl -H "pinata_api_key: $PINATA_API_KEY" -H "pinata_secret_api_key: $PINATA_SECRET_API_KEY" https://api.pinata.cloud/pinning/pinFileToIPFS $(find PreludeCache -type f -printf "-F'file=@%h/%f' ")
+			curl -H @$HOME/.pinata https://api.pinata.cloud/pinning/pinFileToIPFS -FpinataMetadata="{\"name\": \"Prelude Cache $(date -I)\"}" $(find PreludeCache -type f -printf "-Ffile=@%h/%f;filename=%h/%f ")
 			''
 		}]
 	]

@@ -13,17 +13,31 @@ def compile(source)
 		resolver: Dhall::Resolvers::Default.new(
 			max_depth: Float::INFINITY
 		)
-	).then(&:to_binary)
+	)
 end
 
 def compile_file(file_path, relative_to: Pathname.new("."))
 	out = file_path.sub_ext(@extension)
 	if @output_directory
 		out = @output_directory + out.relative_path_from(relative_to)
-		out.dirname.mkpath
 	end
-	warn "#{file_path} => #{out}"
-	compile(file_path.expand_path).then(&out.method(:write))
+	$stderr.print "#{file_path} => "
+	warn out unless @cache
+	compile(file_path.expand_path).then { |dhall|
+		if @cache
+			base = "1220#{dhall.digest.hexdigest}"
+			out = file_path.dirname + base
+			if @output_directory
+				out = @output_directory + base
+				out.dirname.mkpath
+			end
+			warn out
+			out.write(dhall.to_cbor)
+		else
+			out.dirname.mkpath
+			out.write(dhall.to_binary)
+		end
+	}
 end
 
 opt_parser = OptionParser.new do |opts|
@@ -43,6 +57,15 @@ opt_parser = OptionParser.new do |opts|
 		"Use this extension for files (default .dhallb)"
 	) do |ext|
 		@extension = ext ? ".#{ext}" : ""
+	end
+
+	opts.on(
+		"-c",
+		"--cache",
+		"Write output in standard dhall file cache format"
+	) do
+		@extension = ""
+		@cache = true
 	end
 
 	opts.on("-h", "--help", "Show this usage information") do

@@ -1,4 +1,6 @@
 image: debian/stable
+secrets:
+- 253ed950-242c-4d53-ba56-5cf1175e7d29
 environment:
   CI: 1
 sources:
@@ -16,13 +18,15 @@ tasks:
 - compile_prelude: |
     cd dhall-ruby
     bundle exec ruby -E UTF-8 bin/dhall-compile -e -o /tmp/Prelude dhall-lang/Prelude
-    tar -cJf Prelude.tar.xz /tmp/Prelude/
-    curl -F'file=@Prelude.tar.xz' http://0x0.st
+    cd /tmp
+    . ~/.pinata
+    curl -H "pinata_api_key: $PINATA_API_KEY" -H "pinata_secret_api_key: $PINATA_SECRET_API_KEY" https://api.pinata.cloud/pinning/pinFileToIPFS $(find Prelude -type f -printf "-F'file=@%h/%f' ")
 - cache_prelude: |
     cd dhall-ruby
     bundle exec ruby -E UTF-8 bin/dhall-compile -co /tmp/PreludeCache dhall-lang/Prelude
-    tar -cJf PreludeCache.tar.xz /tmp/PreludeCache/
-    curl -F'file=@PreludeCache.tar.xz' http://0x0.st
+    cd /tmp
+    . ~/.pinata
+    curl -H "pinata_api_key: $PINATA_API_KEY" -H "pinata_secret_api_key: $PINATA_SECRET_API_KEY" https://api.pinata.cloud/pinning/pinFileToIPFS $(find PreludeCache -type f -printf "-F'file=@%h/%f' ")
 packages:
 - bundler
 - curl

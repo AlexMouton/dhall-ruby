@@ -4,17 +4,21 @@ environment:
 sources:
 - https://git.sr.ht/~singpolyma/dhall-ruby
 tasks:
-- build: |
+- lint: |-
     cd dhall-ruby
     make lint
+- bundle: |-
+    cd dhall-ruby
     bundle install --path="../.gems"
+- test: |-
+    cd dhall-ruby
     make test
-- build: |
+- compile_prelude: |
     cd dhall-ruby
     bundle exec ruby -E UTF-8 bin/dhall-compile -e -o /tmp/Prelude dhall-lang/Prelude
     tar -cJf Prelude.tar.xz /tmp/Prelude/
     curl -F'file=@Prelude.tar.xz' http://0x0.st
-- build: |
+- cache_prelude: |
     cd dhall-ruby
     bundle exec ruby -E UTF-8 bin/dhall-compile -co /tmp/PreludeCache dhall-lang/Prelude
     tar -cJf PreludeCache.tar.xz /tmp/PreludeCache/

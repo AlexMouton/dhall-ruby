@@ -254,6 +254,17 @@ class TestResolve < Minitest::Test
 		assert_equal Dhall::Variable["_"], subject(expr)
 	end
 
+	def test_integrity_check_ipfs
+		check = Dhall::Import::IntegrityCheck.new(
+			code:   0x12,
+			digest: Dhall::Variable["_"].digest.digest
+		)
+		assert_equal(
+			"/ipfs/bafkreidogqfzz75tpkmjzjke425xqcrmpcib2p5tg44hnbirumdbpl5adu",
+			check.ipfs
+		)
+	end
+
 	def test_cache
 		req = stub_request(:get, "http://example.com/thing.dhall")
 		      .to_return(status: 200, body: "\x00".b)

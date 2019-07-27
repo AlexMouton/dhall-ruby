@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "base32"
 require "lazy_object"
 require "multihashes"
 require "uri"
@@ -1288,6 +1289,10 @@ module Dhall
 
 			def hexdigest
 				digest.unpack("H*").first.encode(Encoding::UTF_8)
+			end
+
+			def ipfs
+				"/ipfs/b#{Base32.encode("\x01\x55" + as_json).downcase.sub(/=*$/, "")}"
 			end
 
 			def check(expr)

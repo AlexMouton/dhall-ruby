@@ -25,6 +25,7 @@ Gem::Specification.new do |spec|
 	spec.executables   = spec.files.grep(/^bin\//) { |f| File.basename(f) }
 	spec.require_paths = ["lib"]
 
+	spec.add_dependency "base32", "~> 0.3.2"
 	spec.add_dependency "cbor", "~> 0.5.9.3"
 	spec.add_dependency "citrus", "~> 3.0"
 	spec.add_dependency "lazy_object", "~> 0.0.3"

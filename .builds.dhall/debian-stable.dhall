@@ -30,7 +30,7 @@ in
 			cd ..
 			bundle exec ruby -E UTF-8 bin/dhall-compile -e -o /tmp/Prelude dhall-lang/Prelude
 			cd /tmp
-			curl -H @$HOME/.pinata https://api.pinata.cloud/pinning/pinFileToIPFS -FpinataMetadata="{\"name\": \"Prelude $VERSION $(date -I)\"}" $(find Prelude -type f -printf "-Ffile=@%h/%f;filename=%h/%f ")
+			curl -H @$HOME/.pinata https://api.pinata.cloud/pinning/pinFileToIPFS -FpinataOptions="{\"cidVersion\": 1}" -FpinataMetadata="{\"name\": \"Prelude $VERSION $(date -I)\"}" $(find Prelude -type f -printf "-Ffile=@%h/%f;filename=%h/%f ")
 			''
 		}],
 		[{ mapKey = "cache_prelude", mapValue =
@@ -40,7 +40,7 @@ in
 			cd ..
 			bundle exec ruby -E UTF-8 bin/dhall-compile -co /tmp/PreludeCache dhall-lang/Prelude
 			cd /tmp
-			curl -H @$HOME/.pinata https://api.pinata.cloud/pinning/pinFileToIPFS -FpinataMetadata="{\"name\": \"Prelude Cache $VERSION $(date -I)\"}" $(find PreludeCache -type f -printf "-Ffile=@%h/%f;filename=%h/%f ")
+			curl -H @$HOME/.pinata https://api.pinata.cloud/pinning/pinFileToIPFS -FpinataOptions="{\"cidVersion\": 1}" -FpinataMetadata="{\"name\": \"Prelude Cache $VERSION $(date -I)\"}" $(find PreludeCache -type f -printf "-Ffile=@%h/%f;filename=%h/%f ")
 			''
 		}]
 	]

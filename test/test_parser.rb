@@ -13,8 +13,6 @@ class TestParser < Minitest::Test
 	Pathname.glob(TESTS + "success/**/*A.dhall").each do |path|
 		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhall$/, "")
 		define_method("test_#{test}") do
-			skip "deprecated syntax" if test =~ /collectionImportType|annotations/
-			skip "deprecated syntax" if test =~ /pathTerminationUnion/
 			skip "very slow" if !ENV.key?("CI") && test =~ /largeExpression/
 			match = Dhall::Parser.parse_file(path)
 			assert(match)

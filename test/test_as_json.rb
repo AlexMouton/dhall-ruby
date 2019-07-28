@@ -16,8 +16,6 @@ class TestAsJson < Minitest::Test
 		next if test =~ /binary-decode/
 		define_method("test_#{test}") do
 			skip "double as_json" if test =~ /doubleB/
-			skip "deprecated syntax" if test =~ /collectionImportTypeB|annotationsB/
-			skip "deprecated syntax" if test =~ /pathTerminationUnion/
 			assert_equal(
 				CBOR.decode(path.read),
 				Dhall.from_binary(path.read).as_json

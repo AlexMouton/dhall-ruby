@@ -384,7 +384,7 @@ module Dhall
 				key = [
 					:complete_expression,
 					:record_type_or_literal,
-					:union_type_or_literal
+					:union_type
 				].find { |k| captures.key?(k) }
 				key ? capture(key).value : super
 			end
@@ -393,31 +393,6 @@ module Dhall
 		module EmptyUnionType
 			def value
 				UnionType.new(alternatives: {})
-			end
-		end
-
-		module UnionTypeOrLiteralVariantType
-			def value(label)
-				rest = capture(:non_empty_union_type_or_literal)&.value
-				type = UnionType.new(
-					alternatives: { label => capture(:expression)&.value }
-				)
-				if rest.is_a?(Union)
-					rest.with(alternatives: type.merge(rest.alternatives))
-				else
-					rest ? type.merge(rest) : type
-				end
-			end
-		end
-
-		module UnionLiteralVariantValue
-			def value(label)
-				Union.new(
-					tag:          label,
-					value:        capture(:expression).value,
-					alternatives: captures(:union_type_entry).map(&:value)
-					              .reduce(UnionType.new(alternatives: {}), &:merge)
-				)
 			end
 		end
 
@@ -431,19 +406,9 @@ module Dhall
 			end
 		end
 
-		module NonEmptyUnionTypeOrLiteral
+		module NonEmptyUnionType
 			def value
-				key = [
-					:union_literal_variant_value,
-					:union_type_or_literal_variant_type
-				].find { |k| captures.key?(k) }
-
-				if key
-					capture(key).value(capture(:any_label).value)
-				else
-					no_alts = UnionType.new(alternatives: {})
-					Union.from(no_alts, capture(:any_label).value, nil)
-				end
+				captures(:union_type_entry).map(&:value).reduce(&:merge)
 			end
 		end
 

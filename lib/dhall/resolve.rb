@@ -442,6 +442,7 @@ module Dhall
 				Promise.resolve(nil).then do
 					resolver.cache_fetch(@expr.cache_key(relative_to)) do
 						resolve_raw(resolver: resolver, relative_to: relative_to)
+							.then(&TypeChecker.method(:annotate)).then(&:normalize)
 					end
 				end
 			end

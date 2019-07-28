@@ -203,11 +203,11 @@ class TestResolve < Minitest::Test
 			rhs: Dhall::Import.new(
 				Dhall::Import::NoIntegrityCheck.new,
 				Dhall::Import::Expression,
-				Dhall::Import::RelativePath.new("import")
+				Dhall::Import::RelativePath.new("moretext")
 			)
 		)
 
-		assert_equal Dhall::Variable["_"], subject(expr)
+		assert_equal Dhall::Text.new(value: "hai"), subject(expr)
 	end
 
 	def test_headers

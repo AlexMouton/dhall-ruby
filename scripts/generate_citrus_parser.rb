@@ -127,6 +127,14 @@ class RuleFormatter
 			       "(block_comment block_comment_continue)"
 		end
 
+		if name == :"single-quote-continue"
+			return "single_quote_char+ single_quote_continue | " \
+			       "interpolation single_quote_continue | " \
+			       "escaped_quote_pair single_quote_continue | " \
+			       "escaped_interpolation single_quote_continue | " \
+			       "\"''\""
+		end
+
 		case rule
 		when ABNF::Term
 			Terminal.new(@abnf.regexp(name))
@@ -174,6 +182,7 @@ abnf.each do |name, rule|
 	puts "rule #{name.to_s.tr("-", "_")}"
 	print "\t"
 	print "!(\"{-\" | \"-}\") " if name == :"block-comment-char"
+	print "!(\"${\" | \"''\") " if name == :"single-quote-char"
 	print "(#{formatter.format_rule(name, rule)})"
 	extension = name.to_s.split(/-/).map(&:capitalize).join
 	if Dhall::Parser.const_defined?(extension, false)

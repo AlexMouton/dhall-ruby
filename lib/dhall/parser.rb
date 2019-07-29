@@ -314,7 +314,9 @@ module Dhall
 
 		module SingleQuoteLiteral
 			def value
-				chunks = capture(:single_quote_continue).value
+				chunks = capture(:single_quote_continue).value.flat_map { |chunk|
+					chunk.is_a?(String) ? chunk.chars : chunk
+				}
 				indent = Util.indent_size(chunks.join)
 
 				TextLiteral.for(

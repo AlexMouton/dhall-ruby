@@ -1,26 +1,37 @@
 # frozen_string_literal: true
 
 require "dhall/builtins"
-require "dhall/visitor"
 require "dhall/util"
 
 module Dhall
-	module ExpressionVisitor
+	class ExpressionVisitor
 		ExpressionHash = Util::HashOf.new(
 			ValueSemantics::Anything,
 			ValueSemantics::Either.new([Expression, nil])
 		)
 
-		def self.new(&block)
-			Visitor.new(
-				Expression                    => block,
-				Util::ArrayOf.new(Expression) => lambda do |x|
-					x.map(&block)
-				end,
-				ExpressionHash                => lambda do |x|
-					Hash[x.map { |k, v| [k, v.nil? ? v : block[v]] }.sort]
-				end
-			)
+		ExpressionArray = Util::ArrayOf.new(Expression)
+
+		def initialize(&block)
+			@block = block
+		end
+
+		def visit(expr)
+			expr.to_h.each_with_object({}) do |(attr, value), h|
+				result = one_visit(value)
+				h[attr] = result if result
+			end
+		end
+
+		def one_visit(value)
+			case value
+			when Expression
+				@block[value]
+			when ExpressionArray
+				value.map(&@block)
+			when ExpressionHash
+				Hash[value.map { |k, v| [k, v.nil? ? v : @block[v]] }.sort]
+			end
 		end
 	end
 

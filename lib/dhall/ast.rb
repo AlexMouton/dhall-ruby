@@ -1299,7 +1299,8 @@ module Dhall
 				expr = expr.normalize
 				return expr if expr.cache_key == to_s
 
-				raise FailureException, "#{expr} does not match #{self}"
+				raise FailureException, "#{expr} hash #{expr.cache_key}" \
+				                        " does not match #{self}"
 			end
 
 			def as_json
@@ -1317,7 +1318,7 @@ module Dhall
 			def hexdigest; end
 
 			def check(expr)
-				expr
+				expr.normalize
 			end
 
 			def as_json
@@ -1690,8 +1691,10 @@ module Dhall
 			path.chain_onto(relative_to).canonical
 		end
 
-		def parse_and_check(raw, deadline: Util::NoDeadline.new)
-			integrity_check.check(import_type.call(raw, deadline: deadline))
+		def parse_resolve_check(raw, deadline: Util::NoDeadline.new, **kwargs)
+			import_type.call(raw, deadline: deadline).resolve(**kwargs).then do |e|
+				integrity_check.check(TypeChecker.annotate(e))
+			end
 		end
 
 		def cache_key(relative_to)

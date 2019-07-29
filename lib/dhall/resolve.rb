@@ -442,7 +442,6 @@ module Dhall
 				Promise.resolve(nil).then do
 					resolver.cache_fetch(@expr.cache_key(relative_to)) do
 						resolve_raw(resolver: resolver, relative_to: relative_to)
-							.then(&TypeChecker.method(:annotate)).then(&:normalize)
 					end
 				end
 			end
@@ -450,7 +449,9 @@ module Dhall
 			def resolve_raw(resolver:, relative_to:)
 				real_path = @expr.real_path(relative_to)
 				real_path.resolve(resolver).then do |result|
-					@expr.parse_and_check(result, deadline: resolver.deadline).resolve(
+					@expr.parse_resolve_check(
+						result,
+						deadline:    resolver.deadline,
 						resolver:    resolver.child(real_path),
 						relative_to: real_path
 					)

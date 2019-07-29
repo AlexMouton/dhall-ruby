@@ -14,8 +14,8 @@ class TestResolve < Minitest::Test
 			path_reader:        lambda do |sources|
 				sources.map do |source|
 					Promise.resolve(Base64.decode64({
-						"var"      => "AA",
-						"import"   => "hRgY9gADY3Zhcg",
+						"nat"      => "gg8B",
+						"import"   => "hRgY9gADY25hdA",
 						"a"        => "hRgY9gADYWI",
 						"b"        => "hRgY9gADYWE",
 						"self"     => "hRgY9gADZHNlbGY",
@@ -31,7 +31,7 @@ class TestResolve < Minitest::Test
 				sources.map do |source|
 					Promise.resolve({
 						"NAT"  => "1",
-						"PATH" => "./var"
+						"PATH" => "./nat"
 					}.fetch(source.var))
 				end
 			end
@@ -67,11 +67,11 @@ class TestResolve < Minitest::Test
 			body: Dhall::Import.new(
 				Dhall::Import::NoIntegrityCheck.new,
 				Dhall::Import::Expression,
-				Dhall::Import::RelativePath.new("var")
+				Dhall::Import::RelativePath.new("nat")
 			)
 		)
 
-		assert_equal expr.with(body: Dhall::Variable["_"]), subject(expr)
+		assert_equal expr.with(body: Dhall::Natural.new(value: 1)), subject(expr)
 	end
 
 	def test_two_levels_to_resolve
@@ -84,7 +84,7 @@ class TestResolve < Minitest::Test
 			)
 		)
 
-		assert_equal expr.with(body: Dhall::Variable["_"]), subject(expr)
+		assert_equal expr.with(body: Dhall::Natural.new(value: 1)), subject(expr)
 	end
 
 	def test_self_loop
@@ -125,10 +125,7 @@ class TestResolve < Minitest::Test
 		)
 
 		assert_equal(
-			Dhall::Operator::TextConcatenate.new(
-				lhs: Dhall::Text.new(value: "hai"),
-				rhs: Dhall::Text.new(value: "hai")
-			),
+			Dhall::Text.new(value: "haihai"),
 			subject(expr)
 		)
 	end
@@ -169,7 +166,7 @@ class TestResolve < Minitest::Test
 		expr = Dhall::Import.new(
 			Dhall::Import::IntegrityCheck.new(code: 0x12, digest: "badhash".b),
 			Dhall::Import::Expression,
-			Dhall::Import::RelativePath.new("var")
+			Dhall::Import::RelativePath.new("nat")
 		)
 
 		assert_raises Dhall::Import::IntegrityCheck::FailureException do
@@ -213,7 +210,7 @@ class TestResolve < Minitest::Test
 	def test_headers
 		stub_request(:get, "http://e.td/t")
 			.with(headers: { "Th" => "tv" })
-			.to_return(status: 200, body: "\x00".b)
+			.to_return(status: 200, body: "\x82\x0f\x01".b)
 
 		expr = Dhall::Import.new(
 			Dhall::Import::NoIntegrityCheck.new,
@@ -221,7 +218,7 @@ class TestResolve < Minitest::Test
 			Dhall::Import::RelativePath.new("using")
 		)
 
-		assert_equal Dhall::Variable["_"], subject(expr)
+		assert_equal Dhall::Natural.new(value: 1), subject(expr)
 	end
 
 	def test_env_natural
@@ -251,7 +248,7 @@ class TestResolve < Minitest::Test
 			Dhall::Import::EnvironmentVariable.new("PATH")
 		)
 
-		assert_equal Dhall::Variable["_"], subject(expr)
+		assert_equal Dhall::Natural.new(value: 1), subject(expr)
 	end
 
 	def test_integrity_check_ipfs
@@ -267,12 +264,12 @@ class TestResolve < Minitest::Test
 
 	def test_cache
 		req = stub_request(:get, "http://example.com/thing.dhall")
-		      .to_return(status: 200, body: "\x00".b)
+		      .to_return(status: 200, body: "\x82\x0f\x01".b)
 
 		expr = Dhall::Import.new(
 			Dhall::Import::IntegrityCheck.new(
 				code:   0x12,
-				digest: Dhall::Variable["_"].digest.digest
+				digest: Dhall::Natural.new(value: 1).digest.digest
 			),
 			Dhall::Import::Expression,
 			Dhall::Import::Http.new(uri: URI("http://example.com/thing.dhall"))
@@ -281,14 +278,14 @@ class TestResolve < Minitest::Test
 		cache = Dhall::Resolvers::RamCache.new
 
 		assert_equal(
-			Dhall::Variable["_"],
+			Dhall::Natural.new(value: 1),
 			expr.resolve(
 				resolver: Dhall::Resolvers::Default.new(cache: cache)
 			).sync
 		)
 
 		assert_equal(
-			Dhall::Variable["_"],
+			Dhall::Natural.new(value: 1),
 			expr.resolve(
 				resolver: Dhall::Resolvers::Default.new(cache: cache)
 			).sync
@@ -299,7 +296,7 @@ class TestResolve < Minitest::Test
 
 	def test_ipfs
 		stub_request(:get, "http://localhost:8000/ipfs/TESTCID")
-			.to_return(status: 200, body: "\x00".b)
+			.to_return(status: 200, body: "\x82\x0f\x01".b)
 
 		expr = Dhall::Import.new(
 			Dhall::Import::NoIntegrityCheck.new,
@@ -307,7 +304,7 @@ class TestResolve < Minitest::Test
 			Dhall::Import::AbsolutePath.new("ipfs", "TESTCID")
 		)
 
-		assert_equal Dhall::Variable["_"], expr.resolve.sync
+		assert_equal Dhall::Natural.new(value: 1), expr.resolve.sync
 	end
 
 	def test_ipfs_public_gateway
@@ -315,7 +312,7 @@ class TestResolve < Minitest::Test
 			.to_return(status: 500)
 
 		stub_request(:get, "https://cloudflare-ipfs.com/ipfs/TESTCID")
-			.to_return(status: 200, body: "_")
+			.to_return(status: 200, body: "1")
 
 		expr = Dhall::Import.new(
 			Dhall::Import::NoIntegrityCheck.new,
@@ -323,7 +320,7 @@ class TestResolve < Minitest::Test
 			Dhall::Import::AbsolutePath.new("ipfs", "TESTCID")
 		)
 
-		assert_equal Dhall::Variable["_"], expr.resolve.sync
+		assert_equal Dhall::Natural.new(value: 1), expr.resolve.sync
 	end
 
 	DIRPATH = Pathname.new(File.dirname(__FILE__)).realpath
@@ -362,7 +359,6 @@ class TestResolve < Minitest::Test
 				.with(headers: { "Test" => "Example" })
 				.to_return(body: (TESTS + "#{test}B.dhall").read)
 
-			Dhall::Function.disable_alpha_normalization!
 			assert_equal(
 				Dhall::Parser.parse_file(TESTS + "#{test}B.dhall").value.normalize,
 				Dhall::Parser.parse_file(path).value.resolve(
@@ -370,7 +366,6 @@ class TestResolve < Minitest::Test
 					relative_to: Dhall::Import::Path.from_string("./")
 				).sync.normalize
 			)
-			Dhall::Function.enable_alpha_normalization!
 		end
 	end
 

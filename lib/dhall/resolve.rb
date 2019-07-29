@@ -16,13 +16,13 @@ module Dhall
 	module Resolvers
 		ReadPathSources = lambda do |sources|
 			sources.map do |source|
-				Promise.resolve(nil).then { source.pathname.binread }
+				Util::LazyPromise.new { source.pathname.binread }
 			end
 		end
 
 		ReadEnvironmentSources = lambda do |sources|
 			sources.map do |source|
-				Promise.resolve(nil).then do
+				Util::LazyPromise.new do
 					ENV.fetch(source.var) do
 						raise ImportFailedException, "No #{source}"
 					end
@@ -53,7 +53,7 @@ module Dhall
 
 		ReadHttpSources = lambda do |sources, parent_origin|
 			sources.map do |source|
-				Promise.resolve(nil).then do
+				Util::LazyPromise.new do
 					PreflightCORS.call(source, parent_origin)
 					timeout = source.deadline.timeout
 					uri = source.uri

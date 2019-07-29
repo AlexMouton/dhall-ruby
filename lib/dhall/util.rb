@@ -1,9 +1,27 @@
 # frozen_string_literal: true
 
+require "promise"
 require "timeout"
 
 module Dhall
 	module Util
+		class LazyPromise < Promise
+			def initialize(&block)
+				super
+				@block = block
+			end
+
+			def subscribe(*args)
+				super
+
+				begin
+					fulfill(@block.call)
+				rescue => e
+					reject(e)
+				end
+			end
+		end
+
 		class AllOf
 			def initialize(*validators)
 				@validators = validators

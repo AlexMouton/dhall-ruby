@@ -327,7 +327,7 @@ class TestResolve < Minitest::Test
 	TESTS = (DIRPATH + "../dhall-lang/tests/import/").realpath
 
 	Pathname.glob(TESTS + "success/**/*A.dhall").each do |path|
-		Dir.chdir(path.dirname)
+		Dir.chdir(DIRPATH + "..")
 		ENV["XDG_CACHE_HOME"] = (TESTS + "cache").to_s
 
 		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhall$/, "")
@@ -363,7 +363,9 @@ class TestResolve < Minitest::Test
 				Dhall::Parser.parse_file(TESTS + "#{test}B.dhall").value.normalize,
 				Dhall::Parser.parse_file(path).value.resolve(
 					resolver:    Dhall::Resolvers::Standard.new,
-					relative_to: Dhall::Import::Path.from_string("./")
+					relative_to: Dhall::Import::Path.from_string(
+						path.relative_path_from(DIRPATH + "..")
+					)
 				).sync.normalize
 			)
 		end

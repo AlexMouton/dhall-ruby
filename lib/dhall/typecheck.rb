@@ -1060,6 +1060,11 @@ module Dhall
 					)
 				)
 			),
+			"Natural/subtract"  => Dhall::Forall.of_arguments(
+				Builtins[:Natural],
+				Builtins[:Natural],
+				body: Builtins[:Natural]
+			),
 			"Natural/isZero"    => Dhall::Forall.of_arguments(
 				Builtins[:Natural],
 				body: Builtins[:Bool]

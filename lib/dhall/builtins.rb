@@ -98,6 +98,23 @@ module Dhall
 			end
 		end
 
+		class Natural_subtract < BuiltinFunction
+			protected
+
+			def uncurried_call(x, y)
+				if Natural_isZero.new.call(x) === true ||
+				   Natural_isZero.new.call(y) === true
+					return y
+				end
+
+				unless x.is_a?(Dhall::Natural) && y.is_a?(Dhall::Natural)
+					return unfill(x, y)
+				end
+
+				Dhall::Natural.new(value: [y.to_i - x.to_i, 0].max)
+			end
+		end
+
 		class Natural_even < BuiltinFunction
 			protected
 

@@ -13,23 +13,24 @@ class TestNormalization < Minitest::Test
 		test = path.relative_path_from(TESTS).to_s.sub(/A\.dhall$/, "")
 
 		define_method("test_#{test}") do
-			Dhall::Function.disable_alpha_normalization! if test !~ /alpha/
-
 			parsed_a = Dhall::Parser.parse_file(path).value
-			binary_a = if test !~ /unit|simple/
+			resolved_a = if test !~ /unit|simple/
 				parsed_a.resolve(
 					relative_to: Dhall::Import::Path.from_string(path)
 				)
 			else
 				Promise.resolve(parsed_a)
-			end.then(&:normalize).sync.to_binary
+			end.sync
 
-			assert_equal(
-				Dhall::Parser.parse_file(TESTS + "#{test}B.dhall").value.to_binary,
-				binary_a
-			)
+			# Dhall::Function.disable_alpha_normalization! if test !~ /alpha/
+			binary_a = resolved_a.normalize.to_binary
 
-			Dhall::Function.enable_alpha_normalization! if test !~ /alpha/
+			parsed_b = Dhall::Parser.parse_file(TESTS + "#{test}B.dhall").value
+			# For now, normalize b side also so that alpha equivalence works out
+			binary_b = parsed_b.normalize.to_binary
+			# Dhall::Function.enable_alpha_normalization! if test !~ /alpha/
+
+			assert_equal(binary_b, binary_a)
 		end
 	end
 

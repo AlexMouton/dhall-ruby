@@ -268,18 +268,18 @@ module Dhall
 		end
 	end
 
-	class LetBlock
+	class LetIn
 		def self.decode(*parts)
 			body = Dhall.decode(parts.pop)
-			lets = parts.each_slice(3).map do |(var, type, assign)|
+			parts.each_slice(3).map { |(var, type, assign)|
 				Let.new(
 					var:    var,
 					assign: Dhall.decode(assign),
 					type:   type.nil? ? nil : Dhall.decode(type)
 				)
+			}.reverse.reduce(body) do |inside, let|
+				LetIn.new(let: let, body: inside)
 			end
-
-			self.for(lets: lets, body: body)
 		end
 	end
 
@@ -341,7 +341,7 @@ module Dhall
 		nil,
 		nil,
 		Import,
-		LetBlock,
+		LetIn,
 		TypeAnnotation,
 		ToMap,
 		EmptyList

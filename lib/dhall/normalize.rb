@@ -452,20 +452,6 @@ module Dhall
 		end
 	end
 
-	class LetBlock
-		def normalize
-			desugar.normalize
-		end
-
-		def shift(amount, name, min_index)
-			unflatten.shift(amount, name, min_index)
-		end
-
-		def substitute(svar, with_expr)
-			unflatten.substitute(svar, with_expr)
-		end
-	end
-
 	class TypeAnnotation
 		def normalize
 			value.normalize

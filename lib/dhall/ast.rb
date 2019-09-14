@@ -1784,10 +1784,10 @@ module Dhall
 
 		def flatten
 			flattened = body.is_a?(LetIn) ? body.flatten : body
-			if flattened.is_a?(LetIn) || flattened.is_a?(LetBlock)
-				LetBlock.for(lets: [let] + flattened.lets, body: flattened.body)
+			if flattened.is_a?(LetBlock)
+				LetBlock.new(lets: lets + flattened.lets, body: flattened.body)
 			else
-				self
+				LetBlock.new(lets: lets, body: body)
 			end
 		end
 
@@ -1810,37 +1810,21 @@ module Dhall
 		end
 
 		def as_json
-			[25, *let.as_json, body.as_json]
+			flatten.as_json
 		end
 	end
 
-	class LetBlock < Expression
+	class LetBlock
 		include(ValueSemantics.for_attributes do
-			lets Util::ArrayOf.new(Let, min: 2)
+			lets Util::ArrayOf.new(Let)
 			body Expression
 		end)
-
-		def self.for(lets:, body:)
-			if lets.length == 1
-				LetIn.new(let: lets.first, body: body)
-			else
-				new(lets: lets, body: body)
-			end
-		end
-
-		def flatten
-			unflatten.flatten
-		end
 
 		def unflatten
 			lets.reverse.reduce(body) do |inside, let|
 				letin = LetIn.new(let: let, body: inside)
 				block_given? ? (yield letin) : letin
 			end
-		end
-
-		def desugar
-			unflatten(&:desugar)
 		end
 
 		def as_json

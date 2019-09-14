@@ -931,8 +931,6 @@ module Dhall
 			end
 		end
 
-		TypeChecker.register ->(blk) { LetIn.for(blk.unflatten) }, Dhall::LetBlock
-
 		class LetIn
 			TypeChecker.register self, Dhall::LetIn
 

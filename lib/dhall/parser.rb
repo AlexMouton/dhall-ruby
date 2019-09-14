@@ -31,10 +31,11 @@ module Dhall
 			end
 
 			def let_binding
-				LetBlock.for(
-					lets: captures(:let_binding).map(&:value),
-					body: capture(:expression).value
-				)
+				captures(:let_binding).reverse.reduce(
+					capture(:expression).value
+				) do |inside, let|
+					LetIn.new(let: let.value, body: inside)
+				end
 			end
 
 			def lambda

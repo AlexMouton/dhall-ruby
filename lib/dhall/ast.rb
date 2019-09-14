@@ -347,6 +347,33 @@ module Dhall
 			[3, OPERATORS.index(self.class), lhs.as_json, rhs.as_json]
 		end
 
+		module FetchFromMerge
+			def fetch_second_record(first, second, selector)
+				rec = self.class.new(
+					self.class::FETCH2K => second.slice(selector),
+					self.class::FETCH1K => first
+				).normalize
+
+				if rec.class == self.class
+					RecordSelection.new(record: rec, selector: selector)
+				else
+					rec.fetch(selector)
+				end
+			end
+
+			def fetch(selector)
+				first = public_send(self.class::FETCH1K)
+				second = public_send(self.class::FETCH2K)
+				if first.is_a?(Record)
+					first.fetch(selector) { second.fetch(selector) }
+				elsif second.is_a?(Record)
+					fetch_second_record(first, second, selector)
+				else
+					super
+				end
+			end
+		end
+
 		class Or < Operator; end
 		class And < Operator; end
 		class Equal < Operator; end
@@ -355,8 +382,16 @@ module Dhall
 		class Times < Operator; end
 		class TextConcatenate < Operator; end
 		class ListConcatenate < Operator; end
-		class RecursiveRecordMerge < Operator; end
-		class RightBiasedRecordMerge < Operator; end
+		class RecursiveRecordMerge < Operator
+			FETCH1K = :lhs
+			FETCH2K = :rhs
+			include FetchFromMerge
+		end
+		class RightBiasedRecordMerge < Operator
+			FETCH1K = :rhs
+			FETCH2K = :lhs
+			include FetchFromMerge
+		end
 		class RecursiveRecordTypeMerge < Operator; end
 		class ImportFallback < Operator; end
 
@@ -870,6 +905,10 @@ module Dhall
 			end
 		end
 
+		def fetch(selector)
+			record.fetch(selector)
+		end
+
 		def as_json
 			[10, record.as_json, *selectors]
 		end
@@ -880,6 +919,10 @@ module Dhall
 			record Expression
 			selector Expression
 		end)
+
+		def fetch(selector)
+			record.fetch(selector)
+		end
 
 		def as_json
 			[10, record.as_json, [selector.as_json]]

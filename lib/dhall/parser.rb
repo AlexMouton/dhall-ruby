@@ -24,7 +24,7 @@ module Dhall
 				return list if string =~ /\A\[\s*\]/
 
 				key =
-					[:let_binding, :lambda, :forall, :arrow, :if, :merge, :tomap]
+					[:let_binding, :lambda, :forall, :arrow, :if, :merge, :tomap, :assert]
 					.find { |k| captures.key?(k) }
 
 				key ? public_send(key) : super
@@ -87,6 +87,10 @@ module Dhall
 					type:   capture(:application_expression).value
 				)
 			end
+
+			def assert
+				Assertion.new(type: capture(:expression).value)
+			end
 		end
 
 		OPERATORS = {
@@ -101,7 +105,8 @@ module Dhall
 			combine_types_expression: :RecursiveRecordTypeMerge,
 			times_expression:         :Times,
 			equal_expression:         :Equal,
-			not_equal_expression:     :NotEqual
+			not_equal_expression:     :NotEqual,
+			equivalent_expression:    :Equivalent
 		}.freeze
 
 		OPERATORS.to_a.zip(

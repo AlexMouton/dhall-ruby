@@ -213,6 +213,12 @@ module Dhall
 		end
 	end
 
+	class Assertion
+		def self.decode(type)
+			new(type: Dhall.decode(type))
+		end
+	end
+
 	class Import
 		class IntegrityCheck
 			def self.decode(integrity_check)
@@ -335,7 +341,7 @@ module Dhall
 		Integer,
 		nil,
 		TextLiteral,
-		nil,
+		Assertion,
 		nil,
 		nil,
 		nil,

@@ -104,6 +104,10 @@ module Dhall
 			end
 		end
 
+		def annotate(type)
+			TypeAnnotation.new(value: self, type: type)
+		end
+
 		def to_s
 			inspect
 		end
@@ -394,13 +398,15 @@ module Dhall
 		end
 		class RecursiveRecordTypeMerge < Operator; end
 		class ImportFallback < Operator; end
+		class Equivalent < Operator; end
 
 		OPERATORS = [
 			Or, And, Equal, NotEqual,
 			Plus, Times,
 			TextConcatenate, ListConcatenate,
 			RecursiveRecordMerge, RightBiasedRecordMerge, RecursiveRecordTypeMerge,
-			ImportFallback
+			ImportFallback,
+			Equivalent
 		].freeze
 	end
 
@@ -1840,6 +1846,16 @@ module Dhall
 
 		def as_json
 			[26, value.as_json, type.as_json]
+		end
+	end
+
+	class Assertion < Expression
+		include(ValueSemantics.for_attributes do
+			type Expression
+		end)
+
+		def as_json
+			[19, type.as_json]
 		end
 	end
 end

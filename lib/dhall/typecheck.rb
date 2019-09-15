@@ -20,7 +20,9 @@ module Dhall
 		def self.assert_types_match(a, b, message, context:)
 			atype = self.for(a).annotate(context).type
 			btype = self.for(b).annotate(context).type
-			raise TypeError, "#{message}: #{atype}, #{btype}" unless atype == btype
+			unless atype.normalize == btype.normalize
+				raise TypeError, "#{message}: #{atype}, #{btype}"
+			end
 			atype
 		end
 
@@ -233,6 +235,31 @@ module Dhall
 				Dhall::TypeAnnotation.new(
 					value: @expr.with(lhs: annotated_lhs, rhs: annotated_rhs),
 					type:  @type
+				)
+			end
+		end
+
+		class OperatorEquivalent
+			TypeChecker.register self, Dhall::Operator::Equivalent
+
+			def initialize(expr)
+				@expr = expr
+				@lhs = expr.lhs
+				@rhs = expr.rhs
+			end
+
+			def annotate(context)
+				type = TypeChecker.assert_types_match @lhs, @rhs,
+				                                      "arguments do not match",
+				                                      context: context
+
+				TypeChecker.assert_type type, Builtins[:Type],
+				                        "arguments are not terms",
+				                        context: context
+
+				Dhall::TypeAnnotation.new(
+					value: @expr.with(lhs: @lhs.annotate(type), rhs: @rhs.annotate(type)),
+					type:  Builtins[:Type]
 				)
 			end
 		end
@@ -842,8 +869,6 @@ module Dhall
 						raise TypeError, "FunctionType part of this is a term"
 					end
 
-					raise TypeError, "Dependent types are not allowed" if outkind > inkind
-
 					if outkind.zero?
 						Term.new
 					else
@@ -993,6 +1018,30 @@ module Dhall
 					raise TypeError, "TypeAnnotation does not match: " \
 					                 "#{@expr.type}, #{redo_annotation.type}"
 				end
+			end
+		end
+
+		class Assertion
+			TypeChecker.register self, Dhall::Assertion
+
+			def initialize(expr)
+				@expr = expr
+				@type = expr.type
+			end
+
+			def annotate(context)
+				TypeChecker.assert @type, Dhall::Operator::Equivalent,
+				                   "assert expected === got: #{@type.class}"
+
+				TypeChecker.assert_type @type, Builtins[:Type],
+				                        "=== expected to have type Type",
+				                        context: context
+
+				TypeChecker.assert @type.lhs.normalize.to_binary,
+				                   @type.rhs.normalize.to_binary,
+				                   "assert equivalence not equivalent"
+
+				@expr
 			end
 		end
 

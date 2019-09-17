@@ -15,7 +15,7 @@ test: lib/dhall/parser.citrus
 	bundle exec ruby -E UTF-8 test/test_suite.rb
 
 unit: lib/dhall/parser.citrus
-	bundle exec ruby -E UTF-8 test/test_suite.rb -n'/unit|import|TestReadme|TestLoad|TestAsDhall|TestResolvers|TestBinary|TestAsJson|TestCoder/'
+	bundle exec ruby -E UTF-8 test/test_suite.rb -fn'/unit|import|TestReadme|TestLoad|TestAsDhall|TestResolvers|TestBinary|TestAsJson|TestCoder/'
 
 clean:
 	$(RM) lib/dhall/parser.citrus

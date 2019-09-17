@@ -200,7 +200,7 @@ class TestReadme < Minitest::Test
 	end
 
 	def test_none_reduce
-		assert_equal nil, NONE.reduce(nil) { |x| x }
+		assert_nil NONE.reduce(nil) { |x| x }
 	end
 
 	def test_none_to_s
@@ -301,7 +301,7 @@ class TestReadme < Minitest::Test
 	end
 
 	def test_rec_index_b_string
-		assert_equal nil, REC["b"]
+		assert_nil REC["b"]
 	end
 
 	def test_rec_fetch_a_string
@@ -323,7 +323,7 @@ class TestReadme < Minitest::Test
 	end
 
 	def test_rec_dig_b
-		assert_equal nil, REC.dig(:b)
+		assert_nil REC.dig(:b)
 	end
 
 	def test_rec_slice_a

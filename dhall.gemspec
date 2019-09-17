@@ -34,6 +34,7 @@ Gem::Specification.new do |spec|
 	spec.add_dependency "value_semantics", "~> 3.0"
 
 	spec.add_development_dependency "abnf", "~> 0.0.1"
+	spec.add_development_dependency "minitest-fail-fast", "~> 0.1.0"
 	spec.add_development_dependency "simplecov", "~> 0.16.1"
 	spec.add_development_dependency "webmock", "~> 3.5"
 end

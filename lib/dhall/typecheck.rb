@@ -776,7 +776,7 @@ module Dhall
 				end
 
 				def keys
-					@type.record.keys
+					Set.new(@type.record.keys)
 				end
 
 				def fetch_input_type(k)
@@ -827,8 +827,8 @@ module Dhall
 				end
 
 				def assert_union_and_handlers_match
-					extras = @handlers.keys - @union.type.alternatives.keys
-					TypeChecker.assert extras, [],
+					extras = @handlers.keys ^ @union.type.alternatives.keys
+					TypeChecker.assert extras, Set.new,
 					                   "Merge handlers unknown alternatives: #{extras}"
 
 					@union.type.alternatives.each do |k, atype|
@@ -1041,7 +1041,7 @@ module Dhall
 				                   @type.rhs.normalize.to_binary,
 				                   "assert equivalence not equivalent"
 
-				@expr
+				@expr.with(type: @type.normalize)
 			end
 		end
 

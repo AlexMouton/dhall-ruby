@@ -175,7 +175,7 @@ module Dhall
 				elsif captures.key?(:labels)
 					captures(:any_label).map(&:value)
 				else
-					string
+					super
 				end
 			end
 		end

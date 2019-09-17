@@ -149,6 +149,8 @@ module Dhall
 		def shift(amount, name, min_index)
 			return self if self.name != name || min_index > index
 
+			raise TypeError, "free variable" if (index + amount).negative?
+
 			with(index: index + amount)
 		end
 

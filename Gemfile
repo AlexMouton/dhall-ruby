@@ -2,4 +2,10 @@
 
 source "https://rubygems.org"
 
+gem(
+	"multihashes",
+	github: "singpolyma/ruby-multihash",
+	branch: "fix-decode-all-zeros"
+)
+
 gemspec

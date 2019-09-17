@@ -243,7 +243,10 @@ module Dhall
 
 		class RightBiasedRecordMerge
 			def normalize
-				lhs.normalize.merge(rhs.normalize)
+				n_lhs = lhs.normalize
+				n_rhs = rhs.normalize
+				return n_lhs if n_lhs == n_rhs
+				n_lhs.merge(n_rhs)
 			end
 		end
 

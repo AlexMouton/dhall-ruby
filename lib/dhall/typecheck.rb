@@ -828,7 +828,7 @@ module Dhall
 
 				def assert_union_and_handlers_match
 					extras = @handlers.keys ^ @union.type.alternatives.keys
-					TypeChecker.assert extras, Set.new,
+					TypeChecker.assert extras.to_a, [],
 					                   "Merge handlers unknown alternatives: #{extras}"
 
 					@union.type.alternatives.each do |k, atype|

@@ -340,10 +340,6 @@ module Dhall
 				                                        "RecursiveRecordMerge got",
 				                                        context: context
 
-				TypeChecker.assert_types_match annotated_lhs.type, annotated_rhs.type,
-				                               "RecursiveRecordMerge got mixed kinds",
-				                               context: context
-
 				[annotated_lhs, annotated_rhs]
 			end
 
@@ -367,12 +363,6 @@ module Dhall
 			end
 
 			def annotate(context)
-				kind = TypeChecker.assert_types_match(
-					@expr.lhs, @expr.rhs,
-					"RecursiveRecordTypeMerge mixed kinds",
-					context: context
-				)
-
 				type = @expr.lhs.deep_merge_type(@expr.rhs)
 
 				TypeChecker.assert type, Dhall::RecordType,
@@ -381,7 +371,13 @@ module Dhall
 				# Annotate to sanity check
 				TypeChecker.for(type).annotate(context)
 
-				Dhall::TypeAnnotation.new(value: @expr, type: kind)
+				Dhall::TypeAnnotation.new(value: @expr, type: kind(context))
+			end
+
+			def kind(context)
+				lhs_kind = KINDS.index(TypeChecker.for(@expr.lhs).annotate(context).type)
+				rhs_kind = KINDS.index(TypeChecker.for(@expr.rhs).annotate(context).type)
+				KINDS[[lhs_kind, rhs_kind].max]
 			end
 		end
 
@@ -505,19 +501,36 @@ module Dhall
 
 		class AnonymousType
 			TypeChecker.register self, Dhall::RecordType
-			TypeChecker.register self, Dhall::UnionType
 
 			def initialize(type)
 				@type = type
 			end
 
 			def annotate(context)
+				kinds = check(context)
+				type = kinds.max_by { |k| KINDS.index(k) } || KINDS.first
+				Dhall::TypeAnnotation.new(value: @type, type: type)
+			end
+
+			protected
+
+			def check(context)
 				kinds = @type.record.values.compact.map do |mtype|
 					TypeChecker.for(mtype).annotate(context).type
 				end
 
 				TypeChecker.assert (kinds - KINDS), [],
 				                   "AnonymousType field kind not one of #{KINDS}"
+
+				kinds
+			end
+		end
+
+		class UnionType < AnonymousType
+			TypeChecker.register self, Dhall::UnionType
+
+			def annotate(context)
+				kinds = check(context)
 
 				TypeChecker.assert kinds, Util::ArrayAllTheSame,
 				                   "AnonymousType field kinds not all the same"

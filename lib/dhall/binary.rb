@@ -236,7 +236,7 @@ module Dhall
 			def self.decode(headers, authority, *path, query)
 				uri = ::URI.scheme_list[name.split(/::/).last.upcase].build(
 					Parser.parse(authority, root: :authority).value.merge(
-						path: Util.path_components_to_uri(*path).path
+						path: "/#{path.join("/")}"
 					)
 				)
 				uri.instance_variable_set(:@query, query)

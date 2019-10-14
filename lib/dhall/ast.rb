@@ -1452,7 +1452,7 @@ module Dhall
 			end
 
 			def path
-				path = uri.path.split(/\//, -1).map(&::URI.method(:unescape))
+				path = uri.path.split(/\//, -1)
 				path = path[1..-1] if path.length > 1 && path.first.empty?
 				path
 			end

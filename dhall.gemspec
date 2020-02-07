@@ -2,7 +2,7 @@
 
 Gem::Specification.new do |spec|
 	spec.name          = "dhall"
-	spec.version       = `git describe --always --dirty`
+	spec.version       = '0.5.0'
 	spec.authors       = ["Stephen Paul Weber"]
 	spec.email         = ["dev@singpolyma.net"]
 	spec.license       = "GPL-3.0"
